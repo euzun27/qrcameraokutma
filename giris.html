@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Giriş · Dunyatek Kamera Okutma</title>
+<style>
+:root{--bg:#0f1216;--panel:#181d23;--line:#2a313a;--text:#e8ecf1;--muted:#8b96a3;--bad:#e5383b;--accent:#3d8bfd}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--bg);color:var(--text);font:15px/1.4 system-ui,Segoe UI,Roboto,sans-serif;padding:16px}
+.kutu{width:100%;max-width:360px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:28px 24px}
+.marka{text-align:center;margin-bottom:22px}
+.marka .logo{font-size:26px;font-weight:900;letter-spacing:1px;color:var(--accent)}
+.marka .alt{color:var(--muted);font-size:14px;margin-top:2px}
+label{display:block;font-size:13px;color:var(--muted);margin:14px 0 6px}
+input{width:100%;font:inherit;color:var(--text);background:#222831;border:1px solid var(--line);border-radius:8px;padding:10px 12px}
+input:focus{outline:2px solid var(--accent);outline-offset:-1px}
+button{width:100%;margin-top:22px;font:inherit;font-weight:600;color:#fff;background:var(--accent);border:0;border-radius:8px;padding:11px;cursor:pointer}
+button:disabled{opacity:.6;cursor:default}
+#hata{color:var(--bad);min-height:20px;margin-top:12px;font-size:14px;text-align:center}
+</style>
+</head>
+<body>
+<form class="kutu" id="form" autocomplete="on">
+  <div class="marka"><div class="logo">DUNYATEK</div><div class="alt">Kamera Okutma</div></div>
+  <label for="kullanici">Kullanıcı adı</label>
+  <input id="kullanici" name="username" autocomplete="username" required autofocus>
+  <label for="sifre">Şifre</label>
+  <input id="sifre" name="password" type="password" autocomplete="current-password" required>
+  <button id="btn" type="submit">Giriş yap</button>
+  <div id="hata"></div>
+</form>
+<script>
+document.getElementById('form').addEventListener('submit', async ev => {
+  ev.preventDefault();
+  const btn = document.getElementById('btn'), hata = document.getElementById('hata');
+  btn.disabled = true; hata.textContent = '';
+  try {
+    const r = await fetch('/api/giris', {method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({kullanici: document.getElementById('kullanici').value, sifre: document.getElementById('sifre').value})});
+    const j = await r.json().catch(() => ({}));
+    if (r.ok) { location.href = '/'; return; }
+    hata.textContent = j.hata || 'Giriş yapılamadı';
+  } catch { hata.textContent = 'Sunucuya ulaşılamadı'; }
+  btn.disabled = false;
+  document.getElementById('sifre').select();
+});
+</script>
+</body>
+</html>

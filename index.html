@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Bant QR Okuyucu</title>
+<title>Dunyatek Kamera Okutma</title>
 <style>
 :root{--bg:#0f1216;--panel:#181d23;--line:#2a313a;--text:#e8ecf1;--muted:#8b96a3;--ok:#1fae5b;--bad:#e5383b;--warn:#f0a202;--accent:#3d8bfd}
 *{box-sizing:border-box}
@@ -47,6 +47,26 @@ details summary{cursor:pointer;font-weight:600}
 #label .dt{font-size:12px;margin-top:4px}
 #printLabel{display:none}
 #stopCode{font-size:clamp(28px,4vw,48px);font-weight:900;word-break:break-all}
+header h1 .marka{color:var(--accent);font-weight:900;letter-spacing:.5px}
+#kimin{color:var(--muted);font-size:14px}
+/* Kurulum penceresi */
+dialog{background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:14px;padding:0;width:min(760px,calc(100vw - 32px));max-height:calc(100vh - 32px)}
+dialog::backdrop{background:#000a}
+.dlg-bas{display:flex;align-items:center;gap:8px;padding:12px 16px;border-bottom:1px solid var(--line)}
+.dlg-bas h2{margin:0;font-size:17px;flex:1}
+.sekmeler{display:flex;gap:4px;padding:10px 16px 0;border-bottom:1px solid var(--line)}
+.sekmeler button{border:0;border-radius:8px 8px 0 0;background:none;color:var(--muted);padding:8px 14px}
+.sekmeler button.aktif{background:#222831;color:var(--text);font-weight:600}
+.sekme{padding:16px;overflow:auto;max-height:calc(100vh - 160px)}
+.sekme[hidden]{display:none}
+.kamtablo td:last-child{white-space:nowrap;text-align:right}
+.kamtablo button{padding:5px 10px;font-size:13px}
+button.tehlike{border-color:var(--bad);color:var(--bad)}
+.mesaj{min-height:20px;margin-top:8px;font-size:14px}
+.mesaj.hata{color:var(--bad)}.mesaj.basari{color:var(--ok)}
+#onizleme{display:none;margin-top:12px;background:#000;border-radius:8px;aspect-ratio:16/9;width:100%;object-fit:contain}
+.uyari{background:#f0a20222;border:1px solid var(--warn);color:var(--warn);border-radius:8px;padding:8px 12px;margin-bottom:12px;font-size:14px}
+@media(max-width:600px){.grid2{grid-template-columns:1fr}}
 @media print{
   body{background:#fff}
   body>*:not(#printLabel){display:none!important}
@@ -57,12 +77,50 @@ details summary{cursor:pointer;font-weight:600}
 </head>
 <body>
 <header>
-  <h1>Bant QR Okuyucu</h1>
+  <h1><span class="marka">DUNYATEK</span> Kamera Okutma</h1>
   <span id="state" class="pill">Kamera kapalı</span>
   <select id="camSel" title="Kamera"></select>
-  <input id="ipAddr" placeholder="IP kamera adresi (ör. 192.168.1.152)" style="display:none;min-width:240px">
   <button id="startBtn" class="primary">Kamerayı başlat</button>
+  <span id="kimin"></span>
+  <button id="kurulumBtn">Kurulum</button>
+  <button id="cikisBtn">Çıkış</button>
 </header>
+<dialog id="kurulum">
+  <div class="dlg-bas"><h2>Kurulum</h2><button id="kurulumKapat" title="Kapat">✕</button></div>
+  <div class="sekmeler">
+    <button data-sekme="sKamera" class="aktif">Kameralar</button>
+    <button data-sekme="sHesap">Kullanıcı / Şifre</button>
+  </div>
+  <div class="sekme" id="sKamera">
+    <table class="kamtablo"><thead><tr><th>Kamera adı</th><th>IP / adres</th><th></th></tr></thead><tbody id="kamListe"></tbody></table>
+    <h3 id="kamFormBaslik" style="margin:18px 0 0;font-size:15px">Kamera ekle</h3>
+    <form id="kamForm" class="grid2" autocomplete="off">
+      <label for="kAd">Kamera adı</label><input id="kAd" placeholder="ör. Hat 1 giriş" maxlength="60" required>
+      <label for="kAdres">IP adresi</label><input id="kAdres" placeholder="ör. 192.168.1.152 veya http://… / rtsp://…" maxlength="300" required>
+      <label for="kKul">Kamera kullanıcı adı</label><input id="kKul" placeholder="isteğe bağlı" autocomplete="off">
+      <label for="kSifre">Kamera şifresi</label><input id="kSifre" type="password" placeholder="isteğe bağlı" autocomplete="new-password">
+    </form>
+    <div class="row">
+      <button id="kKaydet" class="primary">Kaydet</button>
+      <button id="kTest">Görüntüyü test et</button>
+      <button id="kVazgec" style="display:none">Vazgeç</button>
+    </div>
+    <div class="mesaj" id="kMesaj"></div>
+    <p class="hint">Sadece IP yazılırsa yaygın görüntü adresleri sırayla denenir. Tam adres de yazılabilir (ör. <code>http://192.168.1.152/cgi-bin/snapshot.cgi</code>). RTSP için bilgisayarda ffmpeg kurulu olmalıdır. Düzenlerken şifre boş bırakılırsa eski şifre korunur.</p>
+    <img id="onizleme" alt="Kamera önizleme">
+  </div>
+  <div class="sekme" id="sHesap" hidden>
+    <div class="uyari" id="ilkGirisUyari" hidden>İlk giriş: güvenlik için varsayılan şifreyi (admin) değiştirin.</div>
+    <form id="hesapForm" class="grid2" autocomplete="off">
+      <label for="hEski">Mevcut şifre</label><input id="hEski" type="password" autocomplete="current-password" required>
+      <label for="hAd">Yeni kullanıcı adı</label><input id="hAd" placeholder="boş = değişmez" autocomplete="username">
+      <label for="hYeni">Yeni şifre</label><input id="hYeni" type="password" placeholder="en az 6 karakter, boş = değişmez" autocomplete="new-password">
+      <label for="hYeni2">Yeni şifre (tekrar)</label><input id="hYeni2" type="password" autocomplete="new-password">
+    </form>
+    <div class="row"><button id="hKaydet" class="primary">Değiştir</button></div>
+    <div class="mesaj" id="hMesaj"></div>
+  </div>
+</dialog>
 <main>
   <section>
     <div class="card">
@@ -100,7 +158,7 @@ details summary{cursor:pointer;font-weight:600}
           <label>Sesli uyarı</label><select id="cfgSound"><option value="1">Açık</option><option value="0">Kapalı</option></select>
         </div>
         <p class="hint">Sıra kontrolü: koddaki son sayı bir önceki doğru koddan "adım" kadar büyük olmalı (ör. PSK-000123 → PSK-000124), ön ve son ek aynı kalmalı. Farklı gelen kod YANLIŞ olur, sıra son doğru koddan devam eder. Bir poşet gerçekten eksikse "Sırayı son koddan devam ettir" ile yeni koddan devam edilir.<br>
-        IP kamera için uygulamayı <code>python sunucu.py</code> ile açın; adres <code>?kamera=IP</code> ile de verilebilir.<br>
+        IP kameralar üstteki <b>Kurulum</b> düğmesinden eklenir; kamera adresle de açılabilir: <code>?kamera=kamera adı veya IP</code>.<br>
         API yanıtı: HTTP 200 ve JSON içinde <code>valid/gecerli/ok</code> alanı true ise DOĞRU sayılır; alan yoksa 200 = DOĞRU, diğer durumlar YANLIŞ. Kayıt adresine her okuma <code>{code, valid, time}</code> JSON olarak POST edilir.</p>
         <div class="row"><button id="saveCfg" class="primary">Kaydet</button></div>
       </details>
@@ -305,33 +363,34 @@ function setState(s) {
 }
 const ipimg = $('ipimg');
 let src = video;
+let ipCams = [];  // Kurulumda kayıtlı IP kameralar
+// Kamera dışarıdan da verilebilir: /?kamera=192.168.1.152 veya /?kamera=Hat 1
+const qsCam = new URLSearchParams(location.search).get('kamera');
 async function listCams() {
   let devs = [];
-  try { devs = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === 'videoinput'); } catch {}
+  try { devs = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === 'videoinput' && d.deviceId); } catch {}
   const cur = $('camSel').value || cfg.cam;
-  $('camSel').innerHTML = devs.map((d, i) => `<option value="${d.deviceId}">${esc(d.label || 'Kamera ' + (i + 1))}</option>`).join('')
-    + '<option value="ip">IP kamera</option>';
+  let opts = ipCams.map(k => `<option value="ipcam:${esc(k.id)}">${esc(k.ad)} (${esc(k.adres)})</option>`).join('');
+  if (qsCam && !ipCams.some(k => k.ad === qsCam || k.adres === qsCam)) opts += `<option value="ipurl">${esc(qsCam)}</option>`;
+  opts += devs.map((d, i) => `<option value="${esc(d.deviceId)}">${esc(d.label || 'USB kamera ' + (i + 1))}</option>`).join('');
+  if (!devs.length) opts += '<option value="">Bilgisayar kamerası</option>';
+  $('camSel').innerHTML = opts;
   if (cur && [...$('camSel').options].some(o => o.value === cur)) $('camSel').value = cur;
-  $('ipAddr').style.display = $('camSel').value === 'ip' ? '' : 'none';
 }
-// Kamera adresi dışarıdan verilebilir: index.html?kamera=192.168.1.152
-const qsCam = new URLSearchParams(location.search).get('kamera');
-if (qsCam) { cfg.cam = 'ip'; cfg.ip = qsCam; }
-$('ipAddr').value = cfg.ip;
-$('ipAddr').addEventListener('keydown', ev => { if (ev.key === 'Enter') start(); });
+async function loadIpCams() {
+  const r = await api('/api/kameralar');
+  if (r.ok) ipCams = await r.json();
+  await listCams();
+}
 async function startDetector() {
   if (detector || !('BarcodeDetector' in window)) return;
   try { if ((await BarcodeDetector.getSupportedFormats()).includes('qr_code')) detector = new BarcodeDetector({formats:['qr_code']}); } catch {}
 }
-function startIp() {
-  const ip = $('ipAddr').value.trim();
-  if (!ip) { alert('IP kamera adresini yazın.'); return; }
-  if (location.protocol === 'file:') { alert('IP kamera için uygulamayı "python sunucu.py" ile başlatıp http://localhost:8080 adresinden açın.'); return; }
-  cfg.cam = 'ip'; cfg.ip = ip; saveCfg();
+function startIp(path) {
   video.style.display = 'none'; ipimg.style.display = '';
   src = ipimg;
-  ipimg.onerror = () => { $('fps').textContent = 'Kameraya bağlanılamadı, tekrar deneniyor…'; setTimeout(() => { if (src === ipimg) ipimg.src = '/kamera?url=' + encodeURIComponent(ip) + '&t=' + Date.now(); }, 2000); };
-  ipimg.src = '/kamera?url=' + encodeURIComponent(ip) + '&t=' + Date.now();
+  ipimg.onerror = () => { $('fps').textContent = 'Kameraya bağlanılamadı, tekrar deneniyor…'; setTimeout(() => { if (src === ipimg && running) ipimg.src = path + '&t=' + Date.now(); }, 2000); };
+  ipimg.src = path + '&t=' + Date.now();
   running = true; setState('run'); $('startBtn').textContent = 'Kamerayı yeniden başlat';
   startDetector(); if (!looping) loop();
 }
@@ -339,7 +398,8 @@ async function start() {
   if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
   ipimg.onerror = null; ipimg.removeAttribute('src');
   const id = $('camSel').value;
-  if (id === 'ip') return startIp();
+  if (id.startsWith('ipcam:')) { cfg.cam = id; saveCfg(); return startIp('/kamera?id=' + encodeURIComponent(id.slice(6))); }
+  if (id === 'ipurl') return startIp('/kamera?url=' + encodeURIComponent(qsCam));
   video.style.display = ''; ipimg.style.display = 'none'; src = video;
   cfg.cam = id; saveCfg();
   try {
@@ -354,8 +414,119 @@ async function start() {
   if (!looping) loop();
 }
 $('startBtn').onclick = start;
-$('camSel').onchange = () => { $('ipAddr').style.display = $('camSel').value === 'ip' ? '' : 'none'; if (running) start(); };
-listCams().then(() => { if (qsCam) start(); });
+$('camSel').onchange = () => { if (running) start(); };
+
+// ---- oturum ve kurulum ----
+// Oturum düşerse (sunucu yeniden başladı, süre doldu) giriş ekranına dön
+async function api(url, body) {
+  const r = await fetch(url, body === undefined ? {cache:'no-store'} :
+    {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)});
+  if (r.status === 401 && url !== '/api/hesap') { location.href = '/giris.html'; throw new Error('oturum yok'); }
+  return r;
+}
+async function hataMetni(r) { try { return (await r.json()).hata || 'İşlem yapılamadı'; } catch { return 'İşlem yapılamadı'; } }
+function mesaj(el, metin, tur) { $(el).textContent = metin; $(el).className = 'mesaj ' + (tur || ''); }
+
+const dlg = $('kurulum');
+let ilkGiris = false;
+function sekmeAc(id) {
+  for (const b of document.querySelectorAll('.sekmeler button')) b.classList.toggle('aktif', b.dataset.sekme === id);
+  for (const s of document.querySelectorAll('.sekme')) s.hidden = s.id !== id;
+}
+for (const b of document.querySelectorAll('.sekmeler button')) b.onclick = () => sekmeAc(b.dataset.sekme);
+$('kurulumBtn').onclick = () => { kamFormTemizle(); dlg.showModal(); };
+function kurulumKapat() { if (ilkGiris) { sekmeAc('sHesap'); mesaj('hMesaj', 'Devam etmek için önce şifreyi değiştirin.', 'hata'); return; } onizlemeKapat(); dlg.close(); }
+$('kurulumKapat').onclick = kurulumKapat;
+dlg.addEventListener('cancel', ev => { ev.preventDefault(); kurulumKapat(); });
+$('cikisBtn').onclick = async () => { await api('/api/cikis', {}).catch(() => {}); location.href = '/giris.html'; };
+
+// Kameralar
+let duzenlenen = null;
+function kamListeCiz() {
+  $('kamListe').innerHTML = ipCams.length ? ipCams.map(k =>
+    `<tr><td>${esc(k.ad)}</td><td>${esc(k.adres)}${k.kullanici ? ' <span class="hint">(' + esc(k.kullanici) + ')</span>' : ''}</td>
+     <td><button data-duzenle="${esc(k.id)}">Düzenle</button> <button class="tehlike" data-sil="${esc(k.id)}">Sil</button></td></tr>`).join('')
+    : '<tr><td colspan="3" class="hint">Henüz kamera eklenmedi.</td></tr>';
+}
+function kamFormTemizle() {
+  duzenlenen = null; $('kamForm').reset(); $('kamFormBaslik').textContent = 'Kamera ekle';
+  $('kSifre').placeholder = 'isteğe bağlı'; $('kVazgec').style.display = 'none'; mesaj('kMesaj', ''); onizlemeKapat();
+  kamListeCiz();
+}
+$('kamListe').onclick = async ev => {
+  const d = ev.target.dataset;
+  if (d.duzenle) {
+    const k = ipCams.find(x => x.id === d.duzenle); if (!k) return;
+    duzenlenen = k.id; $('kamFormBaslik').textContent = 'Kamerayı düzenle: ' + k.ad;
+    $('kAd').value = k.ad; $('kAdres').value = k.adres; $('kKul').value = k.kullanici; $('kSifre').value = '';
+    $('kSifre').placeholder = k.sifre_var ? 'boş = eski şifre korunur' : 'isteğe bağlı';
+    $('kVazgec').style.display = ''; mesaj('kMesaj', ''); $('kAd').focus();
+  } else if (d.sil) {
+    const k = ipCams.find(x => x.id === d.sil); if (!k || !confirm(`"${k.ad}" kamerası silinsin mi?`)) return;
+    const r = await api('/api/kameralar/' + encodeURIComponent(k.id) + '/sil', {});
+    if (!r.ok) return mesaj('kMesaj', await hataMetni(r), 'hata');
+    await loadIpCams(); kamFormTemizle(); mesaj('kMesaj', 'Kamera silindi.', 'basari');
+  }
+};
+$('kVazgec').onclick = kamFormTemizle;
+$('kKaydet').onclick = async () => {
+  if (!$('kamForm').reportValidity()) return;
+  const body = {ad: $('kAd').value.trim(), adres: $('kAdres').value.trim(), kullanici: $('kKul').value.trim(), sifre: $('kSifre').value};
+  const r = await api('/api/kameralar' + (duzenlenen ? '/' + encodeURIComponent(duzenlenen) : ''), body);
+  if (!r.ok) return mesaj('kMesaj', await hataMetni(r), 'hata');
+  const k = await r.json();
+  await loadIpCams(); kamFormTemizle(); mesaj('kMesaj', `"${k.ad}" kaydedildi. Üstteki listeden seçip başlatabilirsiniz.`, 'basari');
+};
+// Kaydetmeden önce görüntüyü dener (kayıtlı kamerada kayıtlı şifreyle, yeni kamerada yazılan adresle)
+function onizlemeKapat() { $('onizleme').removeAttribute('src'); $('onizleme').style.display = 'none'; }
+$('kTest').onclick = () => {
+  const adres = $('kAdres').value.trim();
+  if (!adres) return mesaj('kMesaj', 'Önce IP adresini yazın.', 'hata');
+  let yol;
+  const kayitli = duzenlenen && ipCams.find(x => x.id === duzenlenen);
+  if (kayitli && kayitli.adres === adres && !$('kSifre').value && $('kKul').value.trim() === kayitli.kullanici) yol = '/kamera?id=' + encodeURIComponent(duzenlenen);
+  else {
+    let u = adres; const kul = $('kKul').value.trim();
+    if (kul) u = (adres.includes('://') ? adres : 'http://' + adres).replace('://', '://' + encodeURIComponent(kul) + ':' + encodeURIComponent($('kSifre').value) + '@');
+    yol = '/kamera?url=' + encodeURIComponent(u);
+  }
+  mesaj('kMesaj', 'Kameraya bağlanılıyor… (birkaç saniye sürebilir)');
+  const img = $('onizleme');
+  img.onload = () => mesaj('kMesaj', 'Görüntü alındı ✓', 'basari');
+  img.onerror = () => { mesaj('kMesaj', 'Kameradan görüntü alınamadı. Adresi, kullanıcı adı ve şifreyi kontrol edin.', 'hata'); img.style.display = 'none'; };
+  img.style.display = 'block'; img.src = yol + '&t=' + Date.now();
+};
+
+// Hesap
+$('hKaydet').onclick = async () => {
+  if (!$('hesapForm').reportValidity()) return;
+  const yeni = $('hYeni').value, ad = $('hAd').value.trim();
+  if (yeni !== $('hYeni2').value) return mesaj('hMesaj', 'Yeni şifreler aynı değil.', 'hata');
+  if (!yeni && !ad) return mesaj('hMesaj', 'Yeni kullanıcı adı veya yeni şifre yazın.', 'hata');
+  const r = await api('/api/hesap', {eski_sifre: $('hEski').value, yeni_kullanici: ad, yeni_sifre: yeni});
+  if (!r.ok) return mesaj('hMesaj', await hataMetni(r), 'hata');
+  const j = await r.json();
+  $('hesapForm').reset(); $('kimin').textContent = '👤 ' + j.kullanici;
+  if (yeni) { ilkGiris = false; $('ilkGirisUyari').hidden = true; }
+  mesaj('hMesaj', 'Bilgiler güncellendi.', 'basari');
+};
+
+(async () => {
+  const r = await api('/api/ben');
+  const ben = await r.json();
+  $('kimin').textContent = '👤 ' + ben.kullanici;
+  await loadIpCams();
+  if (ben.sifre_degismeli) {
+    ilkGiris = true; $('ilkGirisUyari').hidden = false;
+    kamFormTemizle(); sekmeAc('sHesap'); dlg.showModal(); $('hEski').focus();
+    return;
+  }
+  if (qsCam) {
+    const k = ipCams.find(x => x.ad === qsCam || x.adres === qsCam);
+    $('camSel').value = k ? 'ipcam:' + k.id : 'ipurl';
+    start();
+  }
+})().catch(e => console.warn(e));
 
 const cv = document.createElement('canvas'), cx = cv.getContext('2d', {willReadFrequently:true});
 let frames = 0, fpsT = performance.now(), busy = false, looping = false;

@@ -1,19 +1,39 @@
-# Bant QR Okuyucu
+# Dunyatek Kamera Okutma
 
 Hızlı akan banttaki poşetlerin QR kodlarını kameradan sürekli okuyan, her kodu doğrulayan
 (geçersizse ekranda büyük **YANLIŞ** uyarısı ve ses) ve bant durduğunda son okunan barkodu
-gösterip etiketini yazdıran tarayıcı uygulaması.
+gösterip etiketini yazdıran tarayıcı uygulaması. Kullanıcı girişi ve kamera kurulum ekranı vardır.
 
-## Çalıştırma
+## Yeni bilgisayara kurulum
 
-1. Python 3 kurulu bilgisayarda depo klasöründe `python sunucu.py` çalıştırın (ek paket gerekmez).
-2. Chrome veya Edge ile `http://localhost:8080/` adresini açın (internet gerekmez, kütüphaneler `vendor/` içinde).
-3. Kamera listesinden **IP kamera**'yı seçip adresi yazın (ör. `192.168.1.152`) ya da bilgisayara bağlı kamerayı seçin, **Kamerayı başlat**'a basın.
-   Kamera adresi dışarıdan da verilebilir; bu adresle açılınca doğrudan başlar:
-   `http://localhost:8080/?kamera=192.168.1.152`
-   - Sadece IP verilirse sunucu yaygın MJPEG / anlık görüntü adreslerini sırayla dener.
-   - Tam adres de verilebilir: `http://kullanici:sifre@192.168.1.152/video.mjpg`
-   - RTSP (`rtsp://...`) için bilgisayarda `ffmpeg` kurulu olmalıdır.
+1. Bilgisayarda Python 3 yoksa [python.org](https://www.python.org/downloads/windows/) adresinden kurun
+   (kurulumda **Add python.exe to PATH** kutusunu işaretleyin). Ek paket gerekmez.
+2. Bu klasörü bilgisayara kopyalayın (ör. `C:\DunyatekKamera`).
+3. `kur.bat` dosyasına çift tıklayın. Masaüstüne **Dunyatek Kamera Okutma** kısayolu eklenir;
+   isterseniz Windows açılınca otomatik başlatma da eklenir.
+4. Kısayola tıklayınca sunucu küçültülmüş pencerede başlar ve tarayıcıda uygulama açılır.
+   Pencere kapatılırsa uygulama durur.
+
+Elle başlatmak için: `python sunucu.py --ac` (`--port 8080`, `--host 127.0.0.1` = sadece bu bilgisayar).
+Varsayılan olarak ağdaki diğer bilgisayarlar da `http://<bu-bilgisayarın-IP'si>:8080/` ile girebilir.
+
+## Giriş ve kurulum
+
+- İlk giriş: kullanıcı adı **admin**, şifre **admin**. İlk girişte şifreyi değiştirmeniz istenir.
+- Üstteki **Kurulum** düğmesi:
+  - **Kameralar:** kamera adı ve IP adresi ile kamera ekleyin, düzenleyin, silin; isteğe bağlı kamera
+    kullanıcı adı/şifresi girilebilir. **Görüntüyü test et** ile kaydetmeden önce görüntü denenir.
+    - Sadece IP verilirse sunucu yaygın MJPEG / anlık görüntü adreslerini sırayla dener.
+    - Tam adres de verilebilir: `http://192.168.1.152/cgi-bin/mjpg/video.cgi`
+    - RTSP (`rtsp://...`) için bilgisayarda `ffmpeg` kurulu olmalıdır.
+  - **Kullanıcı / Şifre:** mevcut şifreyle kullanıcı adı ve şifre değiştirilir. Şifre değişince diğer oturumlar kapanır.
+- Ayarlar `veri/ayarlar.json` dosyasında tutulur (şifre PBKDF2 ile özetlenmiş halde). Şifre unutulursa
+  bu dosya silinip uygulama yeniden başlatılınca giriş tekrar admin/admin olur, ama kayıtlı kameralar da silinir.
+
+## Kullanım
+
+1. Üstteki listeden kamerayı seçip **Kamerayı başlat**'a basın.
+   Kamera adresle de açılabilir: `http://localhost:8080/?kamera=Hat 1` (kamera adı ya da IP).
 4. **Ayarlar** bölümünden doğrulama yöntemini seçin (varsayılan: sıra kontrolü):
    - **Sıra kontrolü:** koddaki son sayı bir önceki doğru koddan bir fazla olmalı
      (ör. `PSK-000123` → `PSK-000124`). Sıra dışı gelen kod **YANLIŞ** olur ve sıra son doğru koddan devam eder.
