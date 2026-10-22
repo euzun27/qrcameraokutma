@@ -156,7 +156,14 @@ def resolve(target, kullanici="", sifre=""):
     """Verilen adresi çalışan bir http(s) ya da rtsp adresine çevirir."""
     target = target.strip()
     if "://" in target:
-        return kimlik_ekle(target, kullanici, sifre)
+        p = urllib.parse.urlsplit(target)
+        # "http(s)://IP" gibi yolsuz yazılan adres sadece IP verilmiş gibi aranır
+        if p.scheme in ("http", "https") and p.path in ("", "/") and not p.query and p.hostname:
+            if p.username and not kullanici:
+                kullanici, sifre = urllib.parse.unquote(p.username), urllib.parse.unquote(p.password or "")
+            target = p.hostname + (f":{p.port}" if p.port else "")
+        else:
+            return kimlik_ekle(target, kullanici, sifre)
     host = target.strip("/")
     anahtar = (host, kullanici)
     if anahtar in _found:
