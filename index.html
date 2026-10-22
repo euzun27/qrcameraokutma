@@ -60,6 +60,7 @@ details summary{cursor:pointer;font-weight:600}
   <h1>Bant QR Okuyucu</h1>
   <span id="state" class="pill">Kamera kapalı</span>
   <select id="camSel" title="Kamera"></select>
+  <input id="ipAddr" placeholder="IP kamera adresi (ör. 192.168.1.152)" style="display:none;min-width:240px">
   <button id="startBtn" class="primary">Kamerayı başlat</button>
 </header>
 <main>
@@ -67,6 +68,7 @@ details summary{cursor:pointer;font-weight:600}
     <div class="card">
       <div class="video-wrap">
         <video id="video" playsinline muted></video>
+        <img id="ipimg" alt="" style="display:none;width:100%;height:100%;object-fit:contain">
         <div id="flash"></div>
         <div id="fps"></div>
       </div>
@@ -81,10 +83,13 @@ details summary{cursor:pointer;font-weight:600}
         <div class="grid2">
           <label>Doğrulama yöntemi</label>
           <select id="cfgMode">
+            <option value="seq">Sıra kontrolü (önceki kod + adım)</option>
             <option value="regex">Kural (desen)</option>
             <option value="list">Geçerli kod listesi</option>
             <option value="api">Sistem API (HTTP)</option>
           </select>
+          <label>Sıradaki beklenen kod</label><input id="cfgNext" placeholder="boş = ilk okunan kod sırayı başlatır">
+          <label>Sıra adımı</label><input id="cfgStep" type="number" step="1">
           <label>Desen (regex)</label><input id="cfgRegex">
           <label>Geçerli kodlar</label><textarea id="cfgList" rows="3" placeholder="Her satıra bir kod"></textarea>
           <label>Doğrulama API adresi</label><input id="cfgApi" placeholder="http://192.168.1.152/kontrol?kod={code}">
@@ -94,7 +99,9 @@ details summary{cursor:pointer;font-weight:600}
           <label>Durunca otomatik yazdır</label><select id="cfgAutoPrint"><option value="0">Hayır</option><option value="1">Evet</option></select>
           <label>Sesli uyarı</label><select id="cfgSound"><option value="1">Açık</option><option value="0">Kapalı</option></select>
         </div>
-        <p class="hint">API yanıtı: HTTP 200 ve JSON içinde <code>valid/gecerli/ok</code> alanı true ise DOĞRU sayılır; alan yoksa 200 = DOĞRU, diğer durumlar YANLIŞ. Kayıt adresine her okuma <code>{code, valid, time}</code> JSON olarak POST edilir.</p>
+        <p class="hint">Sıra kontrolü: koddaki son sayı bir önceki doğru koddan "adım" kadar büyük olmalı (ör. PSK-000123 → PSK-000124), ön ve son ek aynı kalmalı. Farklı gelen kod YANLIŞ olur, sıra son doğru koddan devam eder. Bir poşet gerçekten eksikse "Sırayı son koddan devam ettir" ile yeni koddan devam edilir.<br>
+        IP kamera için uygulamayı <code>python sunucu.py</code> ile açın; adres <code>?kamera=IP</code> ile de verilebilir.<br>
+        API yanıtı: HTTP 200 ve JSON içinde <code>valid/gecerli/ok</code> alanı true ise DOĞRU sayılır; alan yoksa 200 = DOĞRU, diğer durumlar YANLIŞ. Kayıt adresine her okuma <code>{code, valid, time}</code> JSON olarak POST edilir.</p>
         <div class="row"><button id="saveCfg" class="primary">Kaydet</button></div>
       </details>
     </div>
@@ -109,6 +116,8 @@ details summary{cursor:pointer;font-weight:600}
       <div class="hint">Son okunan</div>
       <div id="last">—</div>
       <div id="lastStatus"></div>
+      <div id="seqBox" class="hint" style="font-size:18px">Beklenen sonraki kod: <b id="expected" style="color:var(--text)">—</b>
+        <button id="seqFromLast" style="margin-left:8px">Sırayı son koddan devam ettir</button></div>
       <div class="counts"><span>Toplam <b id="cTotal">0</b></span><span>Doğru <b id="cOk" class="ok">0</b></span><span>Yanlış <b id="cBad" class="bad">0</b></span></div>
       <div class="row" id="labelHolder"><div id="label" style="display:none"><div class="q" id="labelQr"></div><div class="t"><div class="code" id="labelCode"></div><div class="st" id="labelSt"></div><div class="dt" id="labelDt"></div></div></div></div>
       <div class="row"><button id="printBtn">Etiketi yazdır</button><button id="csvBtn">Kayıtları indir (CSV)</button><button id="clearBtn">Kayıtları temizle</button></div>
@@ -125,20 +134,39 @@ details summary{cursor:pointer;font-weight:600}
 <script>
 (() => {
 const $ = id => document.getElementById(id);
-const DEF = {mode:'regex', regex:'^.{4,}$', list:'', api:'', post:'', stop:3, dedup:1.5, autoPrint:'0', sound:'1'};
+const DEF = {mode:'seq', next:'', step:1, regex:'^.{4,}$', list:'', api:'', post:'', stop:3, dedup:1.5, autoPrint:'0', sound:'1', cam:'', ip:''};
 let cfg = {...DEF};
 try { Object.assign(cfg, JSON.parse(localStorage.getItem('bantqr.cfg') || '{}')); } catch {}
 let log = [];
 try { log = JSON.parse(localStorage.getItem('bantqr.log') || '[]'); } catch {}
 
-const fields = {mode:'cfgMode', regex:'cfgRegex', list:'cfgList', api:'cfgApi', post:'cfgPost', stop:'cfgStop', dedup:'cfgDedup', autoPrint:'cfgAutoPrint', sound:'cfgSound'};
+const fields = {mode:'cfgMode', next:'cfgNext', step:'cfgStep', regex:'cfgRegex', list:'cfgList', api:'cfgApi', post:'cfgPost', stop:'cfgStop', dedup:'cfgDedup', autoPrint:'cfgAutoPrint', sound:'cfgSound'};
 for (const [k, id] of Object.entries(fields)) $(id).value = cfg[k];
 $('saveCfg').onclick = () => {
   for (const [k, id] of Object.entries(fields)) cfg[k] = $(id).value;
-  cfg.stop = +cfg.stop || DEF.stop; cfg.dedup = +cfg.dedup || DEF.dedup;
-  try { localStorage.setItem('bantqr.cfg', JSON.stringify(cfg)); } catch {}
+  cfg.stop = +cfg.stop || DEF.stop; cfg.dedup = +cfg.dedup || DEF.dedup; cfg.step = Math.trunc(+cfg.step) || 1;
+  saveCfg(); showExpected();
   setState(running ? 'run' : 'idle');
 };
+
+function saveCfg() { try { localStorage.setItem('bantqr.cfg', JSON.stringify(cfg)); } catch {} }
+
+// ---- sıra kontrolü ----
+// Koddaki son sayı grubunu adım kadar artırır: PSK-000123 -> PSK-000124 (baştaki sıfırlar korunur)
+function nextOf(code) {
+  const m = /^(.*?)(\d+)(\D*)$/.exec(code);
+  if (!m) return null;
+  const n = BigInt(m[2]) + BigInt(cfg.step);
+  if (n < 0n) return null;
+  return m[1] + n.toString().padStart(m[2].length, '0') + m[3];
+}
+function setNext(code) { cfg.next = code || ''; $('cfgNext').value = cfg.next; saveCfg(); showExpected(); }
+function showExpected() {
+  $('seqBox').style.display = cfg.mode === 'seq' ? '' : 'none';
+  $('expected').textContent = cfg.next || '— (ilk kod sırayı başlatır)';
+}
+let seqLastOk = null;
+$('seqFromLast').onclick = () => { if (lastEntry) { seqLastOk = lastEntry.code; setNext(nextOf(lastEntry.code)); } };
 
 // ---- ses ----
 let actx;
@@ -154,6 +182,11 @@ function beep(freq, ms) {
 
 // ---- doğrulama ----
 async function validate(code) {
+  if (cfg.mode === 'seq') {
+    const ok = !cfg.next ? nextOf(code) !== null : code === cfg.next;
+    if (ok) { seqLastOk = code; setNext(nextOf(code)); }
+    return ok;
+  }
   if (cfg.mode === 'list') {
     const set = new Set(cfg.list.split(/\r?\n/).map(s => s.trim()).filter(Boolean));
     return set.has(code);
@@ -184,6 +217,8 @@ let sessionRead = false, lastCode = null, lastSeen = 0, lastNewAt = 0, lastEntry
 async function onCode(code, src) {
   const now = performance.now();
   if (code === lastCode && now - lastSeen < cfg.dedup * 1000) { lastSeen = now; return; }
+  // Sıra modunda son doğru kodun yeniden görünmesi (poşet hâlâ önde) yeni okuma sayılmaz
+  if (cfg.mode === 'seq' && code === seqLastOk) { lastCode = code; lastSeen = now; return; }
   lastCode = code; lastSeen = now; lastNewAt = now; sessionRead = true;
   if (stopped) resume();
   const entry = {code, valid: undefined, time: new Date().toISOString(), src};
@@ -268,17 +303,45 @@ function setState(s) {
   el.className = 'pill ' + (s === 'run' ? 'run' : s === 'stop' ? 'stop' : '');
   el.textContent = s === 'run' ? 'Okuyor' : s === 'stop' ? 'Bant durdu' : 'Kamera kapalı';
 }
+const ipimg = $('ipimg');
+let src = video;
 async function listCams() {
-  try {
-    const devs = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === 'videoinput');
-    const cur = $('camSel').value;
-    $('camSel').innerHTML = devs.map((d, i) => `<option value="${d.deviceId}">${esc(d.label || 'Kamera ' + (i + 1))}</option>`).join('');
-    if (cur) $('camSel').value = cur;
-  } catch {}
+  let devs = [];
+  try { devs = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === 'videoinput'); } catch {}
+  const cur = $('camSel').value || cfg.cam;
+  $('camSel').innerHTML = devs.map((d, i) => `<option value="${d.deviceId}">${esc(d.label || 'Kamera ' + (i + 1))}</option>`).join('')
+    + '<option value="ip">IP kamera</option>';
+  if (cur && [...$('camSel').options].some(o => o.value === cur)) $('camSel').value = cur;
+  $('ipAddr').style.display = $('camSel').value === 'ip' ? '' : 'none';
+}
+// Kamera adresi dışarıdan verilebilir: index.html?kamera=192.168.1.152
+const qsCam = new URLSearchParams(location.search).get('kamera');
+if (qsCam) { cfg.cam = 'ip'; cfg.ip = qsCam; }
+$('ipAddr').value = cfg.ip;
+$('ipAddr').addEventListener('keydown', ev => { if (ev.key === 'Enter') start(); });
+async function startDetector() {
+  if (detector || !('BarcodeDetector' in window)) return;
+  try { if ((await BarcodeDetector.getSupportedFormats()).includes('qr_code')) detector = new BarcodeDetector({formats:['qr_code']}); } catch {}
+}
+function startIp() {
+  const ip = $('ipAddr').value.trim();
+  if (!ip) { alert('IP kamera adresini yazın.'); return; }
+  if (location.protocol === 'file:') { alert('IP kamera için uygulamayı "python sunucu.py" ile başlatıp http://localhost:8080 adresinden açın.'); return; }
+  cfg.cam = 'ip'; cfg.ip = ip; saveCfg();
+  video.style.display = 'none'; ipimg.style.display = '';
+  src = ipimg;
+  ipimg.onerror = () => { $('fps').textContent = 'Kameraya bağlanılamadı, tekrar deneniyor…'; setTimeout(() => { if (src === ipimg) ipimg.src = '/kamera?url=' + encodeURIComponent(ip) + '&t=' + Date.now(); }, 2000); };
+  ipimg.src = '/kamera?url=' + encodeURIComponent(ip) + '&t=' + Date.now();
+  running = true; setState('run'); $('startBtn').textContent = 'Kamerayı yeniden başlat';
+  startDetector(); if (!looping) loop();
 }
 async function start() {
-  if (stream) stream.getTracks().forEach(t => t.stop());
+  if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+  ipimg.onerror = null; ipimg.removeAttribute('src');
   const id = $('camSel').value;
+  if (id === 'ip') return startIp();
+  video.style.display = ''; ipimg.style.display = 'none'; src = video;
+  cfg.cam = id; saveCfg();
   try {
     stream = await navigator.mediaDevices.getUserMedia({audio:false, video:{
       deviceId: id ? {exact:id} : undefined, facingMode: id ? undefined : 'environment',
@@ -286,29 +349,28 @@ async function start() {
   } catch (e) { alert('Kamera açılamadı: ' + e.message); return; }
   video.srcObject = stream; await video.play();
   await listCams();
-  if ('BarcodeDetector' in window) {
-    try { if ((await BarcodeDetector.getSupportedFormats()).includes('qr_code')) detector = new BarcodeDetector({formats:['qr_code']}); } catch {}
-  }
+  await startDetector();
   running = true; setState('run'); $('startBtn').textContent = 'Kamerayı yeniden başlat';
-  loop();
+  if (!looping) loop();
 }
 $('startBtn').onclick = start;
-$('camSel').onchange = () => { if (running) start(); };
-listCams();
+$('camSel').onchange = () => { $('ipAddr').style.display = $('camSel').value === 'ip' ? '' : 'none'; if (running) start(); };
+listCams().then(() => { if (qsCam) start(); });
 
 const cv = document.createElement('canvas'), cx = cv.getContext('2d', {willReadFrequently:true});
-let frames = 0, fpsT = performance.now(), busy = false;
+let frames = 0, fpsT = performance.now(), busy = false, looping = false;
 async function scan() {
-  if (busy || video.readyState < 2) return;
+  const w = src === video ? video.videoWidth : ipimg.naturalWidth, h = src === video ? video.videoHeight : ipimg.naturalHeight;
+  if (busy || !w || (src === video && video.readyState < 2)) return;
   busy = true;
   try {
     if (detector) {
-      const r = await detector.detect(video);
+      const r = await detector.detect(src);
       for (const b of r) if (b.rawValue) onCode(b.rawValue, 'kamera');
     } else {
-      const scale = Math.min(1, 960 / video.videoWidth);
-      cv.width = video.videoWidth * scale | 0; cv.height = video.videoHeight * scale | 0;
-      cx.drawImage(video, 0, 0, cv.width, cv.height);
+      const scale = Math.min(1, 960 / w);
+      cv.width = w * scale | 0; cv.height = h * scale | 0;
+      cx.drawImage(src, 0, 0, cv.width, cv.height);
       const img = cx.getImageData(0, 0, cv.width, cv.height);
       const r = jsQR(img.data, img.width, img.height, {inversionAttempts:'dontInvert'});
       if (r && r.data) onCode(r.data, 'kamera');
@@ -317,13 +379,16 @@ async function scan() {
   busy = false; frames++;
 }
 function loop() {
-  if (!running) return;
+  if (!running) { looping = false; return; }
+  looping = true;
   scan();
   const now = performance.now();
   if (now - fpsT > 1000) { $('fps').textContent = frames + ' tarama/sn' + (detector ? ' · yerleşik' : ' · jsQR'); frames = 0; fpsT = now; }
   requestAnimationFrame(loop);
 }
 setInterval(checkStop, 250);
+showExpected();
+seqLastOk = (log.find(e => e.valid === true) || {}).code || null;
 drawLog();
 if (log[0]) { lastEntry = log[0]; render(lastEntry, false); }
 })();
