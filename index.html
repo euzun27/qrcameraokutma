@@ -1,0 +1,332 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bant QR Okuyucu</title>
+<style>
+:root{--bg:#0f1216;--panel:#181d23;--line:#2a313a;--text:#e8ecf1;--muted:#8b96a3;--ok:#1fae5b;--bad:#e5383b;--warn:#f0a202;--accent:#3d8bfd}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.4 system-ui,Segoe UI,Roboto,sans-serif}
+header{display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+header h1{font-size:18px;margin:0;flex:1}
+button,select,input,textarea{font:inherit;color:var(--text);background:#222831;border:1px solid var(--line);border-radius:8px;padding:8px 12px}
+button{cursor:pointer}button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.pill{padding:4px 10px;border-radius:99px;font-weight:600;font-size:13px;background:#2a313a}
+.pill.run{background:var(--ok);color:#fff}.pill.stop{background:var(--warn);color:#111}
+main{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:16px;padding:16px}
+@media(max-width:900px){main{grid-template-columns:1fr}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px}
+.video-wrap{position:relative;background:#000;border-radius:10px;overflow:hidden;aspect-ratio:16/9}
+video{width:100%;height:100%;object-fit:contain;display:block}
+#flash{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:clamp(48px,10vw,120px);font-weight:900;letter-spacing:4px;opacity:0;transition:opacity .15s;pointer-events:none;text-shadow:0 4px 20px #000}
+#flash.bad{background:rgba(229,56,59,.55);opacity:1}#flash.ok{background:rgba(31,174,91,.25);opacity:1}
+#fps{position:absolute;right:8px;bottom:6px;font-size:12px;color:#ccc;background:#0008;padding:2px 6px;border-radius:6px}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px}
+#last{font-size:clamp(22px,3vw,34px);font-weight:800;word-break:break-all;margin:6px 0}
+#lastStatus{font-size:clamp(28px,4vw,52px);font-weight:900}
+.ok{color:var(--ok)}.bad{color:var(--bad)}
+.counts{display:flex;gap:16px;margin-top:8px;color:var(--muted)}.counts b{color:var(--text);font-size:20px}
+#stopPanel{display:none;border:3px solid var(--warn)}
+#stopPanel.show{display:block}
+#stopPanel h2{margin:0 0 8px;color:var(--warn)}
+table{width:100%;border-collapse:collapse;font-size:14px}
+td,th{padding:6px 8px;border-bottom:1px solid var(--line);text-align:left}
+th{color:var(--muted);font-weight:500}
+.logbox{max-height:320px;overflow:auto;margin-top:8px}
+details summary{cursor:pointer;font-weight:600}
+.grid2{display:grid;grid-template-columns:180px 1fr;gap:8px;align-items:center;margin-top:10px}
+.grid2 input,.grid2 select,.grid2 textarea{width:100%}
+.hint{color:var(--muted);font-size:13px}
+/* Etiket */
+#label{background:#fff;color:#000;border-radius:6px;padding:10px;display:flex;gap:12px;align-items:center;width:100%;max-width:420px}
+#label .q{width:110px;height:110px;flex:none}#label .q img,#label .q svg{width:100%;height:100%}
+#label .t{flex:1;min-width:0}
+#label .code{font-size:20px;font-weight:800;word-break:break-all}
+#label .st{font-size:18px;font-weight:900;margin-top:4px}
+#label .dt{font-size:12px;margin-top:4px}
+#printLabel{display:none}
+#stopCode{font-size:clamp(28px,4vw,48px);font-weight:900;word-break:break-all}
+@media print{
+  body{background:#fff}
+  body>*:not(#printLabel){display:none!important}
+  #printLabel{display:block}
+  #printLabel #label{max-width:none;border-radius:0;display:flex!important}
+}
+</style>
+</head>
+<body>
+<header>
+  <h1>Bant QR Okuyucu</h1>
+  <span id="state" class="pill">Kamera kapalı</span>
+  <select id="camSel" title="Kamera"></select>
+  <button id="startBtn" class="primary">Kamerayı başlat</button>
+</header>
+<main>
+  <section>
+    <div class="card">
+      <div class="video-wrap">
+        <video id="video" playsinline muted></video>
+        <div id="flash"></div>
+        <div id="fps"></div>
+      </div>
+      <div class="row">
+        <input id="manual" placeholder="Elle kod / USB okuyucu (Enter)" style="flex:1;min-width:200px">
+        <button id="stopTest">Bant durdu (elle)</button>
+      </div>
+    </div>
+    <div class="card" style="margin-top:16px">
+      <details>
+        <summary>Ayarlar</summary>
+        <div class="grid2">
+          <label>Doğrulama yöntemi</label>
+          <select id="cfgMode">
+            <option value="regex">Kural (desen)</option>
+            <option value="list">Geçerli kod listesi</option>
+            <option value="api">Sistem API (HTTP)</option>
+          </select>
+          <label>Desen (regex)</label><input id="cfgRegex">
+          <label>Geçerli kodlar</label><textarea id="cfgList" rows="3" placeholder="Her satıra bir kod"></textarea>
+          <label>Doğrulama API adresi</label><input id="cfgApi" placeholder="http://192.168.1.152/kontrol?kod={code}">
+          <label>Kayıt (POST) adresi</label><input id="cfgPost" placeholder="boş = sadece bu bilgisayara kaydet">
+          <label>Bant durdu sayılması (sn)</label><input id="cfgStop" type="number" min="1" step="0.5">
+          <label>Aynı kodu tekrar sayma (sn)</label><input id="cfgDedup" type="number" min="0.2" step="0.1">
+          <label>Durunca otomatik yazdır</label><select id="cfgAutoPrint"><option value="0">Hayır</option><option value="1">Evet</option></select>
+          <label>Sesli uyarı</label><select id="cfgSound"><option value="1">Açık</option><option value="0">Kapalı</option></select>
+        </div>
+        <p class="hint">API yanıtı: HTTP 200 ve JSON içinde <code>valid/gecerli/ok</code> alanı true ise DOĞRU sayılır; alan yoksa 200 = DOĞRU, diğer durumlar YANLIŞ. Kayıt adresine her okuma <code>{code, valid, time}</code> JSON olarak POST edilir.</p>
+        <div class="row"><button id="saveCfg" class="primary">Kaydet</button></div>
+      </details>
+    </div>
+  </section>
+  <section>
+    <div id="stopPanel" class="card">
+      <h2>BANT DURDU · Son barkod</h2>
+      <div id="stopCode"></div>
+      <div id="stopStatus" style="font-size:28px;font-weight:900"></div>
+    </div>
+    <div class="card" id="printArea" style="margin-top:16px">
+      <div class="hint">Son okunan</div>
+      <div id="last">—</div>
+      <div id="lastStatus"></div>
+      <div class="counts"><span>Toplam <b id="cTotal">0</b></span><span>Doğru <b id="cOk" class="ok">0</b></span><span>Yanlış <b id="cBad" class="bad">0</b></span></div>
+      <div class="row" id="labelHolder"><div id="label" style="display:none"><div class="q" id="labelQr"></div><div class="t"><div class="code" id="labelCode"></div><div class="st" id="labelSt"></div><div class="dt" id="labelDt"></div></div></div></div>
+      <div class="row"><button id="printBtn">Etiketi yazdır</button><button id="csvBtn">Kayıtları indir (CSV)</button><button id="clearBtn">Kayıtları temizle</button></div>
+    </div>
+    <div class="card" style="margin-top:16px">
+      <b>Okuma kaydı</b>
+      <div class="logbox"><table><thead><tr><th>Saat</th><th>Kod</th><th>Durum</th></tr></thead><tbody id="log"></tbody></table></div>
+    </div>
+  </section>
+</main>
+<div id="printLabel"></div>
+<script src="vendor/jsQR.js"></script>
+<script src="vendor/qrcode.js"></script>
+<script>
+(() => {
+const $ = id => document.getElementById(id);
+const DEF = {mode:'regex', regex:'^.{4,}$', list:'', api:'', post:'', stop:3, dedup:1.5, autoPrint:'0', sound:'1'};
+let cfg = {...DEF};
+try { Object.assign(cfg, JSON.parse(localStorage.getItem('bantqr.cfg') || '{}')); } catch {}
+let log = [];
+try { log = JSON.parse(localStorage.getItem('bantqr.log') || '[]'); } catch {}
+
+const fields = {mode:'cfgMode', regex:'cfgRegex', list:'cfgList', api:'cfgApi', post:'cfgPost', stop:'cfgStop', dedup:'cfgDedup', autoPrint:'cfgAutoPrint', sound:'cfgSound'};
+for (const [k, id] of Object.entries(fields)) $(id).value = cfg[k];
+$('saveCfg').onclick = () => {
+  for (const [k, id] of Object.entries(fields)) cfg[k] = $(id).value;
+  cfg.stop = +cfg.stop || DEF.stop; cfg.dedup = +cfg.dedup || DEF.dedup;
+  try { localStorage.setItem('bantqr.cfg', JSON.stringify(cfg)); } catch {}
+  setState(running ? 'run' : 'idle');
+};
+
+// ---- ses ----
+let actx;
+function beep(freq, ms) {
+  if (cfg.sound !== '1') return;
+  try {
+    actx = actx || new AudioContext();
+    const o = actx.createOscillator(), g = actx.createGain();
+    o.frequency.value = freq; o.type = 'square'; g.gain.value = 0.15;
+    o.connect(g).connect(actx.destination); o.start(); o.stop(actx.currentTime + ms / 1000);
+  } catch {}
+}
+
+// ---- doğrulama ----
+async function validate(code) {
+  if (cfg.mode === 'list') {
+    const set = new Set(cfg.list.split(/\r?\n/).map(s => s.trim()).filter(Boolean));
+    return set.has(code);
+  }
+  if (cfg.mode === 'api') {
+    if (!cfg.api) return false;
+    const url = cfg.api.includes('{code}') ? cfg.api.replace('{code}', encodeURIComponent(code)) : cfg.api + (cfg.api.includes('?') ? '&' : '?') + 'code=' + encodeURIComponent(code);
+    try {
+      const r = await fetch(url, {cache:'no-store'});
+      if (!r.ok) return false;
+      const txt = await r.text();
+      try {
+        const j = JSON.parse(txt);
+        for (const k of ['valid','gecerli','geçerli','ok','success','result']) if (k in j) return j[k] === true || j[k] === 1 || j[k] === 'true';
+      } catch {}
+      return true;
+    } catch (e) { console.warn('API hatası', e); return null; }
+  }
+  try { return new RegExp(cfg.regex).test(code); } catch { return false; }
+}
+function record(entry) {
+  if (!cfg.post) return;
+  fetch(cfg.post, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(entry)}).catch(e => console.warn('Kayıt gönderilemedi', e));
+}
+
+// ---- okuma işleme ----
+let sessionRead = false, lastCode = null, lastSeen = 0, lastNewAt = 0, lastEntry = null, stopped = false, printedFor = null;
+async function onCode(code, src) {
+  const now = performance.now();
+  if (code === lastCode && now - lastSeen < cfg.dedup * 1000) { lastSeen = now; return; }
+  lastCode = code; lastSeen = now; lastNewAt = now; sessionRead = true;
+  if (stopped) resume();
+  const entry = {code, valid: undefined, time: new Date().toISOString(), src};
+  lastEntry = entry;
+  log.unshift(entry); if (log.length > 5000) log.length = 5000;
+  render(entry, true);
+  entry.valid = await validate(code);
+  render(entry, false);
+  flash(entry.valid);
+  persist(); record(entry);
+}
+function statusText(v) { return v === true ? 'DOĞRU' : v === false ? 'YANLIŞ' : v === null ? 'SİSTEME ULAŞILAMADI' : '...'; }
+function render(entry, pending) {
+  if (entry === lastEntry) {
+    $('last').textContent = entry.code;
+    $('lastStatus').textContent = pending ? 'kontrol ediliyor…' : statusText(entry.valid);
+    $('lastStatus').className = pending ? '' : entry.valid === true ? 'ok' : 'bad';
+  }
+  drawLog();
+}
+function drawLog() {
+  const ok = log.filter(e => e.valid === true).length;
+  $('cTotal').textContent = log.length; $('cOk').textContent = ok; $('cBad').textContent = log.length - ok;
+  $('log').innerHTML = log.slice(0, 200).map(e =>
+    `<tr><td>${new Date(e.time).toLocaleTimeString('tr-TR')}</td><td>${esc(e.code)}</td><td class="${e.valid === true ? 'ok' : 'bad'}">${statusText(e.valid)}</td></tr>`).join('');
+}
+const esc = s => s.replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+let flashT;
+function flash(valid) {
+  const f = $('flash');
+  f.className = valid === true ? 'ok' : 'bad';
+  f.textContent = valid === true ? '' : valid === null ? 'BAĞLANTI YOK' : 'YANLIŞ';
+  valid === true ? beep(1200, 60) : beep(300, 500);
+  clearTimeout(flashT); flashT = setTimeout(() => { f.className = ''; }, valid === true ? 200 : 1200);
+}
+function persist() { try { localStorage.setItem('bantqr.log', JSON.stringify(log)); } catch {} }
+
+// ---- bant durdu ----
+function checkStop() {
+  if (stopped || !sessionRead || !lastEntry || lastEntry.valid === undefined) return;
+  const now = performance.now();
+  // Ya hiç yeni kod gelmiyor, ya da aynı poşet kameranın önünde bekliyor
+  if (now - lastNewAt >= cfg.stop * 1000) beltStopped();
+}
+function beltStopped() {
+  if (!lastEntry) return;
+  stopped = true; setState('stop');
+  $('stopPanel').classList.add('show');
+  $('stopCode').textContent = lastEntry.code;
+  $('stopStatus').textContent = statusText(lastEntry.valid);
+  $('stopStatus').className = lastEntry.valid === true ? 'ok' : 'bad';
+  buildLabel(lastEntry);
+  if (cfg.autoPrint === '1' && printedFor !== lastEntry) { printedFor = lastEntry; setTimeout(() => window.print(), 300); }
+}
+function resume() {
+  stopped = false; setState(running ? 'run' : 'idle');
+  $('stopPanel').classList.remove('show');
+}
+function buildLabel(e) {
+  $('label').style.display = 'flex';
+  $('labelCode').textContent = e.code;
+  $('labelSt').textContent = statusText(e.valid);
+  $('labelDt').textContent = new Date(e.time).toLocaleString('tr-TR');
+  try { const q = qrcode(0, 'M'); q.addData(e.code); q.make(); $('labelQr').innerHTML = q.createSvgTag({cellSize: 4, margin: 0, scalable: true}); } catch { $('labelQr').innerHTML = ''; }
+  $('printLabel').innerHTML = $('labelHolder').innerHTML;
+}
+$('stopTest').onclick = () => { if (lastEntry) beltStopped(); };
+$('printBtn').onclick = () => { if (lastEntry) { buildLabel(lastEntry); window.print(); } };
+$('manual').addEventListener('keydown', ev => { if (ev.key === 'Enter' && ev.target.value.trim()) { onCode(ev.target.value.trim(), 'elle'); ev.target.value = ''; } });
+$('csvBtn').onclick = () => {
+  const rows = [['zaman','kod','durum']].concat(log.map(e => [e.time, e.code, statusText(e.valid)]));
+  const csv = '﻿' + rows.map(r => r.map(v => '"' + String(v).replace(/"/g, '""') + '"').join(';')).join('\r\n');
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], {type:'text/csv'})); a.download = 'bant-okumalari.csv'; a.click();
+};
+$('clearBtn').onclick = () => { if (confirm('Tüm kayıtlar silinsin mi?')) { log = []; persist(); drawLog(); } };
+
+// ---- kamera ----
+const video = $('video');
+let running = false, stream = null, detector = null;
+function setState(s) {
+  const el = $('state');
+  el.className = 'pill ' + (s === 'run' ? 'run' : s === 'stop' ? 'stop' : '');
+  el.textContent = s === 'run' ? 'Okuyor' : s === 'stop' ? 'Bant durdu' : 'Kamera kapalı';
+}
+async function listCams() {
+  try {
+    const devs = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === 'videoinput');
+    const cur = $('camSel').value;
+    $('camSel').innerHTML = devs.map((d, i) => `<option value="${d.deviceId}">${esc(d.label || 'Kamera ' + (i + 1))}</option>`).join('');
+    if (cur) $('camSel').value = cur;
+  } catch {}
+}
+async function start() {
+  if (stream) stream.getTracks().forEach(t => t.stop());
+  const id = $('camSel').value;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({audio:false, video:{
+      deviceId: id ? {exact:id} : undefined, facingMode: id ? undefined : 'environment',
+      width:{ideal:1280}, height:{ideal:720}, frameRate:{ideal:60}}});
+  } catch (e) { alert('Kamera açılamadı: ' + e.message); return; }
+  video.srcObject = stream; await video.play();
+  await listCams();
+  if ('BarcodeDetector' in window) {
+    try { if ((await BarcodeDetector.getSupportedFormats()).includes('qr_code')) detector = new BarcodeDetector({formats:['qr_code']}); } catch {}
+  }
+  running = true; setState('run'); $('startBtn').textContent = 'Kamerayı yeniden başlat';
+  loop();
+}
+$('startBtn').onclick = start;
+$('camSel').onchange = () => { if (running) start(); };
+listCams();
+
+const cv = document.createElement('canvas'), cx = cv.getContext('2d', {willReadFrequently:true});
+let frames = 0, fpsT = performance.now(), busy = false;
+async function scan() {
+  if (busy || video.readyState < 2) return;
+  busy = true;
+  try {
+    if (detector) {
+      const r = await detector.detect(video);
+      for (const b of r) if (b.rawValue) onCode(b.rawValue, 'kamera');
+    } else {
+      const scale = Math.min(1, 960 / video.videoWidth);
+      cv.width = video.videoWidth * scale | 0; cv.height = video.videoHeight * scale | 0;
+      cx.drawImage(video, 0, 0, cv.width, cv.height);
+      const img = cx.getImageData(0, 0, cv.width, cv.height);
+      const r = jsQR(img.data, img.width, img.height, {inversionAttempts:'dontInvert'});
+      if (r && r.data) onCode(r.data, 'kamera');
+    }
+  } catch (e) { console.warn(e); }
+  busy = false; frames++;
+}
+function loop() {
+  if (!running) return;
+  scan();
+  const now = performance.now();
+  if (now - fpsT > 1000) { $('fps').textContent = frames + ' tarama/sn' + (detector ? ' · yerleşik' : ' · jsQR'); frames = 0; fpsT = now; }
+  requestAnimationFrame(loop);
+}
+setInterval(checkStop, 250);
+drawLog();
+if (log[0]) { lastEntry = log[0]; render(lastEntry, false); }
+})();
+</script>
+</body>
+</html>
