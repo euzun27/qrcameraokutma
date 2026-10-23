@@ -26,6 +26,7 @@ import queue
 import secrets
 import shutil
 import socket
+import sqlite3
 import subprocess
 import sys
 import threading
@@ -33,6 +34,7 @@ import time
 import urllib.parse
 import urllib.request
 import webbrowser
+from contextlib import contextmanager
 from http.cookies import SimpleCookie
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 
@@ -193,6 +195,177 @@ def okuyucu_al(host, port):
         return o
 
 
+# ---------------- okuma kayıtları (kalıcı tablo) ----------------
+DURUMLAR = ("DOĞRU", "YANLIŞ", "OKUNAMADI", "BAĞLANTI YOK")
+_db_kilit = threading.Lock()
+
+
+def db():
+    os.makedirs(VERI_DIZINI, exist_ok=True)
+    c = sqlite3.connect(os.path.join(VERI_DIZINI, "kayitlar.db"), timeout=10)
+    c.row_factory = sqlite3.Row
+    c.execute("""CREATE TABLE IF NOT EXISTS okumalar (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, zaman TEXT NOT NULL, kod TEXT NOT NULL, tip TEXT,
+        durum TEXT NOT NULL, aciklama TEXT, kaynak TEXT, kullanici TEXT)""")
+    c.execute("CREATE INDEX IF NOT EXISTS ix_okumalar_zaman ON okumalar(zaman)")
+    c.execute("CREATE INDEX IF NOT EXISTS ix_okumalar_kod ON okumalar(kod)")
+    c.execute("""CREATE TABLE IF NOT EXISTS baskilar (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, zaman TEXT NOT NULL, kod TEXT NOT NULL, adet INTEGER NOT NULL,
+        yazici TEXT, kullanici TEXT)""")
+    return c
+
+
+@contextmanager
+def baglanti():
+    """Kilitli, işlem sonunda commit edilip kapanan veritabanı bağlantısı."""
+    with _db_kilit:
+        c = db()
+        try:
+            with c:
+                yield c
+        finally:
+            c.close()
+
+
+def okuma_ekle(kod, tip, durum, aciklama, kaynak, kullanici):
+    zaman = time.strftime("%Y-%m-%d %H:%M:%S") + f".{int(time.time() * 1000) % 1000:03d}"
+    with baglanti() as c:
+        cur = c.execute("INSERT INTO okumalar (zaman, kod, tip, durum, aciklama, kaynak, kullanici)"
+                        " VALUES (?, ?, ?, ?, ?, ?, ?)", (zaman, kod, tip, durum, aciklama, kaynak, kullanici))
+        return cur.lastrowid, zaman
+
+
+def okuma_sorgu(qs, limit=1000):
+    """?bas=YYYY-MM-DD&bit=YYYY-MM-DD&durum=...&ara=... süzgeçleriyle kayıtlar (yeniden eskiye)."""
+    al = lambda k: (qs.get(k, [""])[0] or "").strip()
+    kosul, deger = [], []
+    if al("bas"):
+        kosul.append("zaman >= ?"); deger.append(al("bas")[:10])
+    if al("bit"):
+        kosul.append("zaman < ?"); deger.append(al("bit")[:10] + " 99")  # günün sonuna kadar
+    if al("durum") in DURUMLAR:
+        kosul.append("durum = ?"); deger.append(al("durum"))
+    if al("ara"):
+        kosul.append("kod LIKE ?"); deger.append("%" + al("ara")[:100] + "%")
+    where = (" WHERE " + " AND ".join(kosul)) if kosul else ""
+    with baglanti() as c:
+        ozet = c.execute(f"SELECT COUNT(*) toplam, SUM(durum='DOĞRU') dogru FROM okumalar{where}", deger).fetchone()
+        sinir = f" LIMIT {int(limit)}" if limit else ""
+        satirlar = c.execute(f"SELECT * FROM okumalar{where} ORDER BY id DESC{sinir}", deger).fetchall()
+    toplam, dogru = ozet["toplam"] or 0, ozet["dogru"] or 0
+    return [dict(r) for r in satirlar], {"toplam": toplam, "dogru": dogru, "yanlis": toplam - dogru}
+
+
+# ---------------- Zebra etiket yazıcı (ZPL) ----------------
+# Zebra ZT410/ZT411: ağdan ham TCP (port 9100) ya da Windows yazıcısına RAW olarak ZPL gönderilir.
+YAZICI_VARSAYILAN = {"baglanti": "ag", "ip": "", "port": 9100, "windows_ad": "", "dpi": 203,
+                     "genislik_mm": 100, "yukseklik_mm": 50, "adet": 1, "sablon": ""}
+
+
+def yazici_ayar():
+    with _kilit:
+        y = dict(YAZICI_VARSAYILAN)
+        y.update(ayar_oku().get("yazici", {}))
+    return y
+
+
+def zpl_kacis(metin):
+    """^FH_ ile kullanılacak alan verisi: ZPL özel karakterlerini onaltılık yaz."""
+    return "".join("_%02X" % ord(c) if c in "_^~" else c for c in metin)
+
+
+def zpl_uret(y, kod, durum, adet):
+    simdi = time.localtime()
+    degerler = {"KOD": zpl_kacis(kod), "DURUM": zpl_kacis(durum), "ADET": str(adet),
+                "TARIH": time.strftime("%d.%m.%Y", simdi), "SAAT": time.strftime("%H:%M:%S", simdi)}
+    if y.get("sablon", "").strip():
+        # Kullanıcının şablonu (ör. ZebraDesigner çıktısı): {KOD} {DURUM} {TARIH} {SAAT} {ADET}
+        zpl = y["sablon"]
+        for k, v in degerler.items():
+            zpl = zpl.replace("{" + k + "}", v)
+        if "^PQ" not in zpl:
+            i = zpl.rfind("^XZ")
+            zpl = (zpl[:i] + f"^PQ{adet}\n" + zpl[i:]) if i >= 0 else zpl + f"\n^PQ{adet}\n^XZ"
+        return zpl
+    nokta = lambda mm: int(round(float(mm) * int(y["dpi"]) / 25.4))
+    w, h, k = nokta(y["genislik_mm"]), nokta(y["yukseklik_mm"]), nokta(3)  # 3 mm kenar boşluğu
+    qr = h - 2 * k  # QR kare alanı
+    buyutme = max(2, min(10, qr // 33))  # 33 modül civarı QR için modül boyutu (nokta)
+    yazi_x, yazi_w = k + qr + k, w - (k + qr + k) - k
+    f1, f2 = max(20, h // 7), max(18, h // 10)
+    return (f"^XA\n^CI28\n^PW{w}\n^LL{h}\n^LH0,0\n"
+            f"^FO{k},{k}^BQN,2,{buyutme}^FH_^FDMA,{degerler['KOD']}^FS\n"
+            f"^FO{yazi_x},{k}^A0N,{f1},{f1}^FB{yazi_w},4,4,L^FH_^FD{degerler['KOD']}^FS\n"
+            f"^FO{yazi_x},{k + f1 * 4 + 10}^A0N,{f1},{f1}^FB{yazi_w},1,0,L^FH_^FD{degerler['DURUM']}^FS\n"
+            f"^FO{yazi_x},{h - k - f2}^A0N,{f2},{f2}^FD{degerler['TARIH']} {degerler['SAAT']}^FS\n"
+            f"^PQ{adet},0,1,Y\n^XZ\n")
+
+
+def windows_yazicilari():
+    """Kurulu Windows yazıcılarının adları (EnumPrintersW, seviye 4)."""
+    if os.name != "nt":
+        return []
+    import ctypes
+    from ctypes import wintypes
+
+    class PRINTER_INFO_4(ctypes.Structure):
+        _fields_ = [("pPrinterName", wintypes.LPWSTR), ("pServerName", wintypes.LPWSTR),
+                    ("Attributes", wintypes.DWORD)]
+
+    ws = ctypes.WinDLL("winspool.drv")
+    bayrak = 0x2 | 0x4  # PRINTER_ENUM_LOCAL | PRINTER_ENUM_CONNECTIONS
+    gerekli, adet = wintypes.DWORD(), wintypes.DWORD()
+    ws.EnumPrintersW(bayrak, None, 4, None, 0, ctypes.byref(gerekli), ctypes.byref(adet))
+    if not gerekli.value:
+        return []
+    tampon = ctypes.create_string_buffer(gerekli.value)
+    if not ws.EnumPrintersW(bayrak, None, 4, tampon, gerekli, ctypes.byref(gerekli), ctypes.byref(adet)):
+        return []
+    dizi = ctypes.cast(tampon, ctypes.POINTER(PRINTER_INFO_4))
+    return [dizi[i].pPrinterName for i in range(adet.value)]
+
+
+def windows_ham_yazdir(ad, veri):
+    """Windows yazıcı kuyruğuna RAW veri gönderir (sürücü ZPL'i olduğu gibi iletir)."""
+    import ctypes
+    from ctypes import wintypes
+
+    class DOC_INFO_1(ctypes.Structure):
+        _fields_ = [("pDocName", wintypes.LPWSTR), ("pOutputFile", wintypes.LPWSTR),
+                    ("pDatatype", wintypes.LPWSTR)]
+
+    ws = ctypes.WinDLL("winspool.drv", use_last_error=True)
+    h = wintypes.HANDLE()
+    if not ws.OpenPrinterW(ad, ctypes.byref(h), None):
+        raise OSError(f"Yazıcı açılamadı: {ad}")
+    try:
+        if not ws.StartDocPrinterW(h, 1, ctypes.byref(DOC_INFO_1("Dunyatek etiket", None, "RAW"))):
+            raise OSError("Yazdırma işi başlatılamadı")
+        try:
+            ws.StartPagePrinter(h)
+            yazilan = wintypes.DWORD()
+            if not ws.WritePrinter(h, veri, len(veri), ctypes.byref(yazilan)) or yazilan.value != len(veri):
+                raise OSError("Yazıcıya veri gönderilemedi")
+            ws.EndPagePrinter(h)
+        finally:
+            ws.EndDocPrinter(h)
+    finally:
+        ws.ClosePrinter(h)
+
+
+def yazdir(y, zpl):
+    veri = zpl.encode("utf-8")
+    if y["baglanti"] == "windows":
+        if not y.get("windows_ad"):
+            raise OSError("Windows yazıcısı seçilmemiş")
+        windows_ham_yazdir(y["windows_ad"], veri)
+    else:
+        if not y.get("ip"):
+            raise OSError("Yazıcı IP adresi girilmemiş")
+        with socket.create_connection((y["ip"], int(y.get("port") or 9100)), timeout=5) as s:
+            s.sendall(veri)
+
+
 # ---------------- oturumlar ----------------
 _oturumlar = {}  # jeton -> bitiş zamanı
 _hatalar = {}  # ip -> [hatalı deneme sayısı, kilit bitişi]
@@ -292,7 +465,7 @@ class Handler(SimpleHTTPRequestHandler):
     server_version = "DunyatekKamera/1.0"
 
     def log_message(self, fmt, *args):
-        if not self.path.startswith(("/kamera", "/okuyucu", "/api/ben")):
+        if not self.path.startswith(("/kamera", "/okuyucu", "/api/ben", "/api/okuma")):
             super().log_message(fmt, *args)
 
     def end_headers(self):
@@ -388,7 +561,104 @@ class Handler(SimpleHTTPRequestHandler):
             with _kilit:
                 a = ayar_oku()
             return self.json_yanit(200, [kamera_disari(k) for k in a["kameralar"]])
+        qs = urllib.parse.parse_qs(u.query)
+        if yol == "/api/okuma/var":
+            # Mükerrer kontrolü: bu kod daha önce DOĞRU olarak okundu mu
+            kod = qs.get("kod", [""])[0][:500]
+            with baglanti() as c:
+                n = c.execute("SELECT COUNT(*) FROM okumalar WHERE kod = ? AND durum = 'DOĞRU'", (kod,)).fetchone()[0]
+            return self.json_yanit(200, {"dogru": n})
+        if yol == "/api/okumalar":
+            kayitlar, ozet = okuma_sorgu(qs)
+            return self.json_yanit(200, {"kayitlar": kayitlar, "ozet": ozet})
+        if yol == "/api/okumalar.csv":
+            return self.okuma_csv(qs)
+        if yol == "/api/yazici":
+            return self.json_yanit(200, yazici_ayar())
+        if yol == "/api/yazicilar":
+            try:
+                return self.json_yanit(200, windows_yazicilari())
+            except OSError:
+                return self.json_yanit(200, [])
         return self.hata(404, "Bulunamadı")
+
+    def yazici_kaydet(self, v):
+        y = dict(YAZICI_VARSAYILAN)
+        try:
+            y.update({"baglanti": "windows" if v.get("baglanti") == "windows" else "ag",
+                      "ip": str(v.get("ip", "")).strip()[:100], "port": int(v.get("port") or 9100),
+                      "windows_ad": str(v.get("windows_ad", ""))[:200], "dpi": int(v.get("dpi") or 203),
+                      "genislik_mm": float(v.get("genislik_mm") or 100), "yukseklik_mm": float(v.get("yukseklik_mm") or 50),
+                      "adet": int(v.get("adet") or 1), "sablon": str(v.get("sablon", ""))[:20000]})
+        except (TypeError, ValueError):
+            return self.hata(400, "Yazıcı ayarlarında sayı alanları geçersiz")
+        if not 1 <= y["port"] <= 65535 or y["dpi"] not in (203, 300, 600) or not 1 <= y["adet"] <= 9999 \
+                or not (10 <= y["genislik_mm"] <= 300 and 10 <= y["yukseklik_mm"] <= 300):
+            return self.hata(400, "Port, DPI (203/300/600), adet (1-9999) veya etiket ölçüsü (10-300 mm) geçersiz")
+        if y["sablon"].strip() and "^XA" not in y["sablon"]:
+            return self.hata(400, "Şablon ^XA ile başlayan bir ZPL olmalı")
+        with _kilit:
+            a = ayar_oku()
+            a["yazici"] = y
+            ayar_yaz(a)
+        return self.json_yanit(200, y)
+
+    def yazdir_istek(self, v):
+        kod = str(v.get("kod", ""))[:500]
+        durum = str(v.get("durum", ""))[:40]
+        try:
+            adet = int(v.get("adet") or 1)
+        except (TypeError, ValueError):
+            adet = 0
+        if not kod or not 1 <= adet <= 9999:
+            return self.hata(400, "Kod boş ya da adet 1-9999 dışında")
+        y = yazici_ayar()
+        try:
+            yazdir(y, zpl_uret(y, kod, durum, adet))
+        except OSError as e:
+            print(f"[yazıcı] hata: {e}")
+            return self.hata(502, "Yazıcıya gönderilemedi. Bağlantıyı ve yazıcı ayarlarını kontrol edin.")
+        hedef = y["windows_ad"] if y["baglanti"] == "windows" else f"{y['ip']}:{y['port']}"
+        with _kilit:
+            kullanici = ayar_oku()["kullanici"]["ad"]
+        with baglanti() as c:
+            c.execute("INSERT INTO baskilar (zaman, kod, adet, yazici, kullanici) VALUES (?, ?, ?, ?, ?)",
+                      (time.strftime("%Y-%m-%d %H:%M:%S"), kod, adet, hedef, kullanici))
+        print(f"[yazıcı] {hedef}: {kod} x{adet}")
+        return self.json_yanit(200, {"ok": True, "adet": adet, "yazici": hedef})
+
+    def okuma_csv(self, qs):
+        """Excel'in doğrudan açtığı CSV: UTF-8 BOM, noktalı virgül ayraç."""
+        kayitlar, _ = okuma_sorgu(qs, limit=0)
+        satirlar = [["No", "Zaman", "Kod", "Tip", "Durum", "Açıklama", "Kamera / okuyucu", "Kullanıcı"]]
+        satirlar += [[r["id"], r["zaman"], r["kod"], r["tip"] or "", r["durum"], r["aciklama"] or "",
+                      r["kaynak"] or "", r["kullanici"] or ""] for r in reversed(kayitlar)]
+
+        def hucre(v):
+            v = str(v)
+            if v[:1] in ("=", "+", "-", "@"):  # Excel formül enjeksiyonunu önle
+                v = "'" + v
+            return '"' + v.replace('"', '""') + '"'
+
+        govde = ("﻿" + "\r\n".join(";".join(hucre(v) for v in s) for s in satirlar)).encode("utf-8")
+        ad = "okumalar_" + time.strftime("%Y%m%d_%H%M") + ".csv"
+        self.send_response(200)
+        self.send_header("Content-Type", "text/csv; charset=utf-8")
+        self.send_header("Content-Disposition", f'attachment; filename="{ad}"')
+        self.send_header("Content-Length", str(len(govde)))
+        self.end_headers()
+        self.wfile.write(govde)
+
+    def okuma_kaydet(self, v):
+        kod = str(v.get("kod", ""))[:500]
+        durum = str(v.get("durum", ""))
+        if not kod or durum not in DURUMLAR:
+            return self.hata(400, "Geçersiz okuma")
+        with _kilit:
+            kullanici = ayar_oku()["kullanici"]["ad"]
+        kid, zaman = okuma_ekle(kod, str(v.get("tip", ""))[:40], durum, str(v.get("aciklama", ""))[:300],
+                                str(v.get("kaynak", ""))[:100], kullanici)
+        return self.json_yanit(200, {"id": kid, "zaman": zaman})
 
     # --- POST ---
     def do_POST(self):
@@ -405,6 +675,12 @@ class Handler(SimpleHTTPRequestHandler):
             return self.hata(400, "Geçersiz istek")
         if yol == "/api/hesap":
             return self.hesap(v)
+        if yol == "/api/okuma":
+            return self.okuma_kaydet(v)
+        if yol == "/api/yazici":
+            return self.yazici_kaydet(v)
+        if yol == "/api/yazdir":
+            return self.yazdir_istek(v)
         if yol == "/api/kameralar":
             return self.kamera_kaydet(v, None)
         if yol.startswith("/api/kameralar/"):

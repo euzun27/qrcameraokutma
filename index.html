@@ -110,12 +110,27 @@ button.tehlike{border-color:var(--bad);color:var(--bad)}
 #onizleme{display:none;margin-top:12px;background:#000;border-radius:6px;aspect-ratio:16/9;width:100%;object-fit:contain}
 .uyari{background:#f0a20222;border:1px solid var(--warn);color:var(--warn);border-radius:6px;padding:8px 12px;margin-bottom:12px;font-size:14px}
 @media(max-width:600px){.grid2{grid-template-columns:1fr}}
+#yaziciForm.windows .y-ag,#yaziciForm:not(.windows) .y-win{display:none}
+#bAdet{width:80px}
 #kamForm.okuyucu .t-kamera,#kamForm:not(.okuyucu) .t-okuyucu,.row.okuyucu .t-kamera{display:none}
 #okuyucuPanel{display:none;position:absolute;inset:0;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center;padding:16px}
 #okuyucuPanel.goster{display:flex}
 #okuyucuDurum{font-size:18px;color:var(--muted)}
 #okuyucuDurum.bagli{color:var(--ok)}#okuyucuDurum.kopuk{color:var(--bad)}
 #okuyucuSon{font-size:clamp(24px,4vw,44px);font-weight:800;word-break:break-all}
+/* YANLIŞ alarmı: tüm ekranı kaplar */
+#alarm{display:none;position:fixed;inset:0;z-index:50;align-items:center;justify-content:center;background:rgba(160,10,15,.82);animation:yanson .5s steps(2) infinite}
+#alarm.goster{display:flex}
+@keyframes yanson{50%{background:rgba(229,56,59,.92)}}
+.alarm-kutu{text-align:center;padding:24px;max-width:90vw}
+.alarm-baslik{font-size:clamp(64px,14vw,180px);font-weight:900;letter-spacing:6px;line-height:1;text-shadow:0 6px 30px #000}
+.alarm-kod{font-size:clamp(20px,3vw,40px);font-weight:800;margin-top:16px;word-break:break-all;font-family:Consolas,monospace}
+.alarm-neden{font-size:clamp(18px,2.4vw,30px);margin-top:10px}
+#alarmSustur{margin-top:28px;font-size:22px;font-weight:800;padding:14px 32px;background:#fff;color:#a00;border:0;border-radius:8px}
+#alarmSustur small{font-weight:400;font-size:14px;color:#555}
+td .neden{font-size:11px;color:var(--muted);font-weight:400;margin-top:2px}
+#kayitlar{width:min(1200px,calc(100vw - 32px))}
+#kayitlar .row label{display:flex;flex-direction:column;font-size:12px;color:var(--muted);gap:4px}
 @media print{
   body{background:#fff;display:block}
   body>*:not(#printLabel){display:none!important}
@@ -136,6 +151,7 @@ button.tehlike{border-color:var(--bad);color:var(--bad)}
     <select id="camSel" title="Kamera / okuyucu"></select>
     <button id="startBtn" class="primary">▶ Başlat</button>
     <span id="kimin"></span>
+    <button id="kayitlarBtn">📋 Kayıtlar</button>
     <button id="kurulumBtn">⚙ Kurulum</button>
     <button id="cikisBtn">Çıkış</button>
   </div>
@@ -144,7 +160,24 @@ button.tehlike{border-color:var(--bad);color:var(--bad)}
   <div class="dlg-bas"><h2>Kurulum</h2><button id="kurulumKapat" title="Kapat">✕</button></div>
   <div class="sekmeler">
     <button data-sekme="sKamera" class="aktif">Kameralar</button>
+    <button data-sekme="sYazici">Etiket yazıcı</button>
     <button data-sekme="sHesap">Kullanıcı / Şifre</button>
+  </div>
+  <div class="sekme" id="sYazici" hidden>
+    <form id="yaziciForm" class="grid2" autocomplete="off">
+      <label for="yBag">Bağlantı</label><select id="yBag"><option value="ag">Ağ (Ethernet, IP adresi)</option><option value="windows">Windows yazıcısı (USB)</option></select>
+      <label for="yIp" class="y-ag">Yazıcı IP adresi</label><input id="yIp" class="y-ag" placeholder="ör. 192.168.1.60">
+      <label for="yPort" class="y-ag">Port</label><input id="yPort" class="y-ag" type="number" min="1" max="65535" value="9100">
+      <label for="yWin" class="y-win">Windows yazıcısı</label><select id="yWin" class="y-win"></select>
+      <label for="yDpi">Çözünürlük</label><select id="yDpi"><option value="203">203 dpi (8 nokta/mm)</option><option value="300">300 dpi (12 nokta/mm)</option><option value="600">600 dpi</option></select>
+      <label for="yGen">Etiket genişliği (mm)</label><input id="yGen" type="number" min="10" max="300" step="0.5">
+      <label for="yYuk">Etiket yüksekliği (mm)</label><input id="yYuk" type="number" min="10" max="300" step="0.5">
+      <label for="yAdet">Varsayılan adet</label><input id="yAdet" type="number" min="1" max="9999">
+      <label for="ySablon">Özel ZPL şablonu</label><textarea id="ySablon" rows="5" placeholder="Boş = hazır şablon (QR + kod + durum + tarih). ZebraDesigner'dan ZPL yapıştırılabilir; yer tutucular: {KOD} {DURUM} {TARIH} {SAAT} {ADET}" style="font-family:Consolas,monospace;font-size:12px"></textarea>
+    </form>
+    <div class="row" style="margin-top:12px"><button id="yKaydet" class="primary">Kaydet</button><button id="yTest">Test etiketi bas</button></div>
+    <div class="mesaj" id="yMesaj"></div>
+    <p class="hint">Zebra ZT410/ZT411 ağ üzerinden bağlanıyorsa yazıcının IP adresini girin (port genelde 9100). USB ile bağlıysa Windows'a kurulu Zebra yazıcısını seçin; etiket ZPL olarak ham (RAW) gönderilir. Adet, yazıcıya tek komutla (^PQ) iletilir.</p>
   </div>
   <div class="sekme" id="sKamera">
     <table class="kamtablo"><thead><tr><th>Kamera adı</th><th>IP / adres</th><th></th></tr></thead><tbody id="kamListe"></tbody></table>
@@ -205,13 +238,14 @@ button.tehlike{border-color:var(--bad);color:var(--bad)}
       <summary>Kod okuma</summary>
       <div class="alan">
         <label for="cfgFormats">Okunacak kodlar</label><select id="cfgFormats"><option value="all">Tüm barkodlar (QR, EAN, Code128, DataMatrix…)</option><option value="qr">Sadece QR (daha hızlı)</option></select>
-        <label for="cfgMirror">Görüntüyü aynala</label><select id="cfgMirror"><option value="0">Hayır</option><option value="1">Evet (kamera ters gösteriyorsa)</option></select>
+        <label for="cfgMirror">Aynalı (ters baskı) kodlar</label><select id="cfgMirror"><option value="auto">Otomatik (normal ve aynalı dene)</option><option value="0">Sadece normal</option><option value="1">Sadece aynalı</option></select>
         <label for="cfgDedup">Aynı kodu tekrar sayma (sn)</label><input id="cfgDedup" type="number" min="0.2" step="0.1">
       </div>
     </details>
     <details class="bolum">
-      <summary>Bant ve etiket</summary>
+      <summary>Alarm, bant ve etiket</summary>
       <div class="alan">
+        <label for="cfgAlarm">YANLIŞ alarmı</label><select id="cfgAlarm"><option value="siren">Siren (3 sn)</option><option value="surekli">Susturulana kadar çal</option><option value="kisa">Kısa bip</option></select>
         <label for="cfgStop">Bant durdu sayılması (sn)</label><input id="cfgStop" type="number" min="1" step="0.5">
         <label for="cfgAutoPrint">Durunca otomatik yazdır</label><select id="cfgAutoPrint"><option value="0">Hayır</option><option value="1">Evet</option></select>
         <label for="cfgSound">Sesli uyarı</label><select id="cfgSound"><option value="1">Açık</option><option value="0">Kapalı</option></select>
@@ -269,11 +303,36 @@ button.tehlike{border-color:var(--bad);color:var(--bad)}
       <div id="seqBox">Beklenen sonraki kod: <b id="expected">—</b>
         <div class="row" style="margin-top:6px"><button id="seqFromLast">Sırayı son koddan devam ettir</button></div></div>
       <div class="row" id="labelHolder" style="margin-top:10px"><div id="label" style="display:none"><div class="q" id="labelQr"></div><div class="t"><div class="code" id="labelCode"></div><div class="st" id="labelSt"></div><div class="dt" id="labelDt"></div></div></div></div>
-      <div class="row" style="margin-top:10px"><button id="printBtn">Etiketi yazdır</button><button id="csvBtn">CSV indir</button><button id="clearBtn">Kayıtları temizle</button></div>
+      <div class="row" style="margin-top:10px"><label class="hint" for="bAdet">Adet</label><input id="bAdet" type="number" min="1" max="9999" value="1"><button id="zebraBtn" class="primary">🖨 Etiket bas</button></div>
+      <div class="mesaj" id="bMesaj" style="margin-top:4px"></div>
+      <div class="row" style="margin-top:6px"><button id="printBtn" title="Zebra yerine bu bilgisayarın varsayılan yazıcısından">Tarayıcıdan yazdır</button><button id="csvBtn">Kayıtlar / Excel</button><button id="clearBtn" title="Ekrandaki listeyi ve sayaçları sıfırlar; kalıcı kayıtlar silinmez">Ekranı temizle</button></div>
     </div>
     <div class="logbox"><table><thead><tr><th>#</th><th>İçerik</th><th>Tip</th><th>Durum</th><th>Saat</th></tr></thead><tbody id="log"></tbody></table></div>
   </aside>
 </main>
+<div id="alarm" role="alertdialog" aria-live="assertive">
+  <div class="alarm-kutu">
+    <div class="alarm-baslik" id="alarmBaslik">YANLIŞ</div>
+    <div class="alarm-kod" id="alarmKod"></div>
+    <div class="alarm-neden" id="alarmNeden"></div>
+    <button id="alarmSustur">ALARMI SUSTUR <small>(Boşluk / Enter)</small></button>
+  </div>
+</div>
+<dialog id="kayitlar">
+  <div class="dlg-bas"><h2>Okuma kayıtları</h2><button id="kayitlarKapat" title="Kapat">✕</button></div>
+  <div class="sekme">
+    <div class="row">
+      <label>Başlangıç <input id="kBas" type="date"></label>
+      <label>Bitiş <input id="kBit" type="date"></label>
+      <label>Durum <select id="kDurum"><option value="">Tümü</option><option>DOĞRU</option><option>YANLIŞ</option><option>OKUNAMADI</option><option>BAĞLANTI YOK</option></select></label>
+      <label>Kod <input id="kAra" placeholder="ara…" style="width:140px"></label>
+      <button id="kListele" class="primary">Listele</button>
+      <button id="kExcel">Excel'e aktar (CSV)</button>
+    </div>
+    <div class="bilgi" id="kOzet" style="margin-top:12px">—</div>
+    <div class="logbox" style="max-height:calc(100vh - 300px);margin-top:12px"><table><thead><tr><th>#</th><th>Zaman</th><th>Kod</th><th>Tip</th><th>Durum</th><th>Açıklama</th><th>Kaynak</th></tr></thead><tbody id="kTablo"></tbody></table></div>
+  </div>
+</dialog>
 <div id="printLabel"></div>
 <script src="vendor/jsQR.js"></script>
 <script src="vendor/qrcode.js"></script>
@@ -281,13 +340,15 @@ button.tehlike{border-color:var(--bad);color:var(--bad)}
 <script>
 (() => {
 const $ = id => document.getElementById(id);
-const DEF = {mode:'seq', next:'', step:1, regex:'^.{4,}$', list:'', api:'', post:'', stop:3, dedup:1.5, autoPrint:'0', sound:'1', formats:'all', mirror:'0', cam:''};
+const DEF = {mode:'seq', next:'', step:1, regex:'^.{4,}$', list:'', api:'', post:'', stop:3, dedup:1.5, autoPrint:'0', sound:'1', formats:'all', mirror:'auto', alarm:'siren', cam:'', surum:2};
 let cfg = {...DEF};
 try { Object.assign(cfg, JSON.parse(localStorage.getItem('bantqr.cfg') || '{}')); } catch {}
+// Eski ayarlarda aynalama "0" kayıtlıydı; ters baskı kodlar için otomatiğe geçir
+if (!cfg.surum || cfg.surum < 2) { cfg.mirror = 'auto'; cfg.alarm = cfg.alarm || 'siren'; cfg.surum = 2; }
 let log = [];
 try { log = JSON.parse(localStorage.getItem('bantqr.log') || '[]'); } catch {}
 
-const fields = {mode:'cfgMode', next:'cfgNext', step:'cfgStep', regex:'cfgRegex', list:'cfgList', api:'cfgApi', post:'cfgPost', stop:'cfgStop', dedup:'cfgDedup', autoPrint:'cfgAutoPrint', sound:'cfgSound', formats:'cfgFormats', mirror:'cfgMirror'};
+const fields = {mode:'cfgMode', next:'cfgNext', step:'cfgStep', regex:'cfgRegex', list:'cfgList', api:'cfgApi', post:'cfgPost', stop:'cfgStop', dedup:'cfgDedup', autoPrint:'cfgAutoPrint', sound:'cfgSound', formats:'cfgFormats', mirror:'cfgMirror', alarm:'cfgAlarm'};
 for (const [k, id] of Object.entries(fields)) $(id).value = cfg[k];
 $('saveCfg').onclick = () => {
   for (const [k, id] of Object.entries(fields)) cfg[k] = $(id).value;
@@ -327,6 +388,42 @@ function beep(freq, ms) {
     o.connect(g).connect(actx.destination); o.start(); o.stop(actx.currentTime + ms / 1000);
   } catch {}
 }
+
+// İki tonlu yüksek siren (sn saniye). Tarayıcı sesi ancak bir tıklamadan sonra açar: sesKilidiAc()
+function siren(sn) {
+  if (cfg.sound !== '1') return;
+  try {
+    actx = actx || new AudioContext(); if (actx.state === 'suspended') actx.resume();
+    const o = actx.createOscillator(), g = actx.createGain(), t0 = actx.currentTime;
+    o.type = 'square'; g.gain.value = 0.9;
+    for (let i = 0; i < sn * 4; i++) o.frequency.setValueAtTime(i % 2 ? 1450 : 950, t0 + i * 0.25);
+    o.connect(g).connect(actx.destination); o.start(); o.stop(t0 + sn);
+  } catch {}
+}
+function sesKilidiAc() { try { actx = actx || new AudioContext(); actx.resume(); } catch {} }
+document.addEventListener('pointerdown', sesKilidiAc, {once: true});
+
+// ---- YANLIŞ alarmı ----
+let alarmTekrar = null, alarmKapatT = null;
+function alarmVer(baslik, kod, neden) {
+  if (cfg.alarm === 'kisa') { beep(300, 500); return; }
+  $('alarmBaslik').textContent = baslik; $('alarmKod').textContent = kod; $('alarmNeden').textContent = neden || '';
+  $('alarm').classList.add('goster');
+  clearInterval(alarmTekrar); clearTimeout(alarmKapatT);
+  siren(cfg.alarm === 'surekli' ? 2 : 3);
+  if (cfg.alarm === 'surekli') alarmTekrar = setInterval(() => siren(2), 2100);
+  else alarmKapatT = setTimeout(alarmSustur, 3000);
+  $('alarmSustur').focus();
+}
+function alarmSustur() {
+  clearInterval(alarmTekrar); clearTimeout(alarmKapatT); alarmTekrar = null;
+  $('alarm').classList.remove('goster');
+  try { if (actx) { actx.close(); actx = null; } } catch {}  // çalan sireni hemen kes
+}
+$('alarmSustur').onclick = alarmSustur;
+document.addEventListener('keydown', ev => {
+  if ($('alarm').classList.contains('goster') && (ev.key === ' ' || ev.key === 'Enter' || ev.key === 'Escape')) { ev.preventDefault(); alarmSustur(); }
+});
 
 // ---- doğrulama ----
 async function validate(code) {
@@ -369,9 +466,15 @@ function tipAdi(t) {
   const u = String(t).toUpperCase();
   return TIP_ADLARI[u] || u.replace(/^(CODE|EAN|UPC)_?(\w+)$/, (m, a, b) => a === 'CODE' ? 'Code' + b : a + '-' + b).replace(/_/g, ' ');
 }
+// Her kodun son görülme zamanı: görüntüde kalan (ya da aynı anda görünen iki poşetten biri olan)
+// kod her karede tazelenir, böylece tekrar sayılmaz; görüntüden çıkıp sonradan gelirse mükerrer olur.
+const sonGorulme = new Map();
 async function onCode(code, src, tip) {
   const now = performance.now();
-  if (code === lastCode && now - lastSeen < cfg.dedup * 1000) { lastSeen = now; return; }
+  const onceki = sonGorulme.get(code);
+  sonGorulme.set(code, now);
+  if (sonGorulme.size > 500) for (const [k, t] of sonGorulme) if (now - t > 60000) sonGorulme.delete(k);
+  if (src !== 'elle' && onceki && now - onceki < cfg.dedup * 1000) { lastSeen = now; return; }
   // Sıra modunda son doğru kodun yeniden görünmesi (poşet hâlâ önde) yeni okuma sayılmaz
   if (cfg.mode === 'seq' && code === seqLastOk) { lastCode = code; lastSeen = now; return; }
   lastCode = code; lastSeen = now; lastNewAt = now; sessionRead = true;
@@ -381,22 +484,39 @@ async function onCode(code, src, tip) {
   lastEntry = entry;
   log.unshift(entry); if (log.length > 5000) log.length = 5000;
   render(entry, true);
-  entry.valid = await validate(code);
+  const beklenen = cfg.mode === 'seq' ? cfg.next : '';
+  // Mükerrer: aynı kod daha önce DOĞRU okunmuş (ekrandaki listede ya da kalıcı kayıtlarda)
+  let mukerrer = log.some(e => e !== entry && e.code === code && e.valid === true);
+  if (!mukerrer) { try { mukerrer = (await (await api('/api/okuma/var?kod=' + encodeURIComponent(code))).json()).dogru > 0; } catch {} }
+  entry.valid = mukerrer ? false : await validate(code);
+  entry.neden = entry.valid === true ? '' : mukerrer ? 'Mükerrer: bu kod daha önce okundu'
+    : entry.valid === null ? 'Doğrulama sistemine ulaşılamadı'
+    : cfg.mode === 'seq' ? (beklenen ? 'Sıra dışı · beklenen: ' + beklenen : 'Kodda sıra numarası yok')
+    : cfg.mode === 'regex' ? 'Kurala uymuyor' : cfg.mode === 'list' ? 'Geçerli kod listesinde yok' : 'Sistem reddetti';
   render(entry, false);
   flash(entry.valid);
-  persist(); record(entry);
+  if (entry.valid !== true) alarmVer(entry.valid === null ? 'BAĞLANTI YOK' : 'YANLIŞ', code, entry.neden);
+  persist(); record(entry); arsivle(entry);
 }
 // Okuyucu poşeti gördü ama kodu çözemedi: kayda YANLIŞ olarak düşer, sıra değişmez
 function okunamadi(src) {
   lastNewAt = performance.now(); sessionRead = true; lastCode = null;
   if (stopped) resume();
-  const entry = {code: '(okunamadı)', valid: false, time: new Date().toISOString(), src, okunamadi: true};
+  const entry = {code: '(okunamadı)', valid: false, time: new Date().toISOString(), src, okunamadi: true,
+    tip: src === 'okuyucu' ? 'Okuyucu' : '', neden: 'Okuyucu kodu çözemedi'};
   lastEntry = entry;
   log.unshift(entry); if (log.length > 5000) log.length = 5000;
   render(entry, false);
-  const f = $('flash'); f.className = 'bad'; f.textContent = 'OKUNAMADI'; beep(300, 500);
+  const f = $('flash'); f.className = 'bad'; f.textContent = 'OKUNAMADI';
   clearTimeout(flashT); flashT = setTimeout(() => { f.className = ''; }, 1200);
-  persist(); record(entry);
+  alarmVer('OKUNAMADI', '', entry.neden);
+  persist(); record(entry); arsivle(entry);
+}
+// Kalıcı kayıt tablosuna (sunucudaki veritabanı) yaz
+function arsivle(e) {
+  const durum = e.okunamadi ? 'OKUNAMADI' : e.valid === true ? 'DOĞRU' : e.valid === null ? 'BAĞLANTI YOK' : 'YANLIŞ';
+  const kaynak = ($('camSel').selectedOptions[0] || {}).text || '';
+  api('/api/okuma', {kod: e.code, tip: e.tip || '', durum, aciklama: e.neden || '', kaynak}).catch(err => console.warn('Kayıt yazılamadı', err));
 }
 function statusText(v) { return v === true ? 'DOĞRU' : v === false ? 'YANLIŞ' : v === null ? 'SİSTEME ULAŞILAMADI' : '...'; }
 function render(entry, pending) {
@@ -412,7 +532,8 @@ function drawLog() {
   $('cTotal').textContent = log.length; $('cOk').textContent = ok; $('cBad').textContent = log.length - ok;
   $('log').innerHTML = log.slice(0, 200).map((e, i) =>
     `<tr><td class="no">${log.length - i}</td><td class="kod">${esc(e.code)}</td><td>${e.tip ? '<span class="tip">' + esc(e.tip) + '</span>' : ''}</td>`
-    + `<td class="${e.valid === true ? 'ok' : 'bad'}">${statusText(e.valid)}</td><td>${new Date(e.time).toLocaleTimeString('tr-TR')}</td></tr>`).join('');
+    + `<td class="${e.valid === true ? 'ok' : 'bad'}">${e.okunamadi ? 'OKUNAMADI' : statusText(e.valid)}${e.neden ? '<div class="neden">' + esc(e.neden) + '</div>' : ''}</td>`
+    + `<td>${new Date(e.time).toLocaleTimeString('tr-TR')}</td></tr>`).join('');
   $('bilgi').textContent = log.length ? `${log.length} kod okundu · ${ok} doğru · ${log.length - ok} yanlış.` : 'Okuma bekleniyor.';
 }
 const esc = s => s.replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -421,7 +542,7 @@ function flash(valid) {
   const f = $('flash');
   f.className = valid === true ? 'ok' : 'bad';
   f.textContent = valid === true ? '' : valid === null ? 'BAĞLANTI YOK' : 'YANLIŞ';
-  valid === true ? beep(1200, 60) : beep(300, 500);
+  if (valid === true) beep(1200, 60);  // yanlışta sesi alarmVer verir
   clearTimeout(flashT); flashT = setTimeout(() => { f.className = ''; }, valid === true ? 200 : 1200);
 }
 function persist() { try { localStorage.setItem('bantqr.log', JSON.stringify(log)); } catch {} }
@@ -441,7 +562,10 @@ function beltStopped() {
   $('stopStatus').textContent = statusText(lastEntry.valid);
   $('stopStatus').className = lastEntry.valid === true ? 'ok' : 'bad';
   buildLabel(lastEntry);
-  if (cfg.autoPrint === '1' && printedFor !== lastEntry) { printedFor = lastEntry; setTimeout(() => window.print(), 300); }
+  if (cfg.autoPrint === '1' && printedFor !== lastEntry && !lastEntry.okunamadi) {
+    printedFor = lastEntry;
+    if (yaziciHazir()) zebraBas(lastEntry, +yazici.adet || 1); else setTimeout(() => window.print(), 300);
+  }
 }
 function resume() {
   stopped = false; setState(running ? 'run' : 'idle');
@@ -458,12 +582,77 @@ function buildLabel(e) {
 $('stopTest').onclick = () => { if (lastEntry) beltStopped(); };
 $('printBtn').onclick = () => { if (lastEntry) { buildLabel(lastEntry); window.print(); } };
 $('manual').addEventListener('keydown', ev => { if (ev.key === 'Enter' && ev.target.value.trim()) { onCode(ev.target.value.trim(), 'elle'); ev.target.value = ''; } });
-$('csvBtn').onclick = () => {
-  const rows = [['zaman','kod','tip','durum']].concat(log.map(e => [e.time, e.code, e.tip || '', statusText(e.valid)]));
-  const csv = '﻿' + rows.map(r => r.map(v => '"' + String(v).replace(/"/g, '""') + '"').join(';')).join('\r\n');
-  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], {type:'text/csv'})); a.download = 'bant-okumalari.csv'; a.click();
+// ---- Zebra etiket yazıcı ----
+let yazici = {};
+const yaziciHazir = () => yazici.baglanti === 'windows' ? !!yazici.windows_ad : !!yazici.ip;
+async function zebraBas(e, adet) {
+  if (!yaziciHazir()) { mesaj('bMesaj', 'Önce Kurulum → Etiket yazıcı bölümünden yazıcıyı ayarlayın.', 'hata'); return false; }
+  mesaj('bMesaj', `${adet} adet etiket gönderiliyor…`);
+  const r = await api('/api/yazdir', {kod: e.code, durum: e.okunamadi ? 'OKUNAMADI' : statusText(e.valid), adet});
+  if (!r.ok) { mesaj('bMesaj', await hataMetni(r), 'hata'); return false; }
+  const j = await r.json();
+  mesaj('bMesaj', `${j.adet} adet etiket yazıcıya gönderildi (${j.yazici}).`, 'basari');
+  return true;
+}
+$('zebraBtn').onclick = () => {
+  if (!lastEntry || lastEntry.okunamadi) return mesaj('bMesaj', 'Basılacak okunmuş kod yok.', 'hata');
+  const adet = Math.trunc(+$('bAdet').value);
+  if (!(adet >= 1 && adet <= 9999)) return mesaj('bMesaj', 'Adet 1-9999 arasında olmalı.', 'hata');
+  if (adet > 20 && !confirm(`"${lastEntry.code}" için ${adet} adet etiket basılsın mı?`)) return;
+  buildLabel(lastEntry); zebraBas(lastEntry, adet);
 };
-$('clearBtn').onclick = () => { if (confirm('Tüm kayıtlar silinsin mi?')) { log = []; persist(); drawLog(); } };
+function yaziciFormDoldur() {
+  $('yBag').value = yazici.baglanti || 'ag'; $('yIp').value = yazici.ip || ''; $('yPort').value = yazici.port || 9100;
+  $('yDpi').value = String(yazici.dpi || 203); $('yGen').value = yazici.genislik_mm || 100; $('yYuk').value = yazici.yukseklik_mm || 50;
+  $('yAdet').value = yazici.adet || 1; $('ySablon').value = yazici.sablon || '';
+  $('yaziciForm').classList.toggle('windows', $('yBag').value === 'windows');
+}
+async function yaziciYukle() {
+  try { yazici = await (await api('/api/yazici')).json(); } catch { yazici = {}; }
+  $('bAdet').value = yazici.adet || 1;
+  yaziciFormDoldur();
+  const adlar = await (await api('/api/yazicilar')).json().catch(() => []);
+  $('yWin').innerHTML = '<option value="">— seçin —</option>' + adlar.map(a => `<option>${esc(a)}</option>`).join('');
+  if (yazici.windows_ad) $('yWin').value = yazici.windows_ad;
+}
+$('yBag').onchange = () => $('yaziciForm').classList.toggle('windows', $('yBag').value === 'windows');
+async function yaziciKaydet() {
+  const r = await api('/api/yazici', {baglanti: $('yBag').value, ip: $('yIp').value.trim(), port: $('yPort').value, windows_ad: $('yWin').value,
+    dpi: $('yDpi').value, genislik_mm: $('yGen').value, yukseklik_mm: $('yYuk').value, adet: $('yAdet').value, sablon: $('ySablon').value});
+  if (!r.ok) { mesaj('yMesaj', await hataMetni(r), 'hata'); return false; }
+  yazici = await r.json(); $('bAdet').value = yazici.adet;
+  mesaj('yMesaj', 'Yazıcı ayarları kaydedildi.', 'basari');
+  return true;
+}
+$('yKaydet').onclick = yaziciKaydet;
+$('yTest').onclick = async () => {
+  if (!(await yaziciKaydet())) return;
+  const r = await api('/api/yazdir', {kod: 'TEST-' + new Date().toLocaleTimeString('tr-TR').replace(/:/g, ''), durum: 'TEST ETİKETİ', adet: 1});
+  mesaj('yMesaj', r.ok ? 'Test etiketi yazıcıya gönderildi.' : await hataMetni(r), r.ok ? 'basari' : 'hata');
+};
+
+// ---- kalıcı kayıtlar penceresi ----
+const bugun = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 10); };
+function kayitSorgu() {
+  return new URLSearchParams({bas: $('kBas').value, bit: $('kBit').value, durum: $('kDurum').value, ara: $('kAra').value.trim()}).toString();
+}
+async function kayitListele() {
+  $('kOzet').textContent = 'Yükleniyor…';
+  const r = await api('/api/okumalar?' + kayitSorgu());
+  if (!r.ok) { $('kOzet').textContent = await hataMetni(r); return; }
+  const {kayitlar, ozet} = await r.json();
+  $('kOzet').textContent = `${ozet.toplam} kayıt · ${ozet.dogru} doğru · ${ozet.yanlis} yanlış/okunamadı` + (kayitlar.length < ozet.toplam ? ` (son ${kayitlar.length} tanesi gösteriliyor, tamamı için Excel'e aktarın)` : '');
+  $('kTablo').innerHTML = kayitlar.map(k => `<tr><td class="no">${k.id}</td><td>${esc(k.zaman.slice(0, 19))}</td><td class="kod">${esc(k.kod)}</td>`
+    + `<td>${k.tip ? '<span class="tip">' + esc(k.tip) + '</span>' : ''}</td><td class="${k.durum === 'DOĞRU' ? 'ok' : 'bad'}">${esc(k.durum)}</td>`
+    + `<td>${esc(k.aciklama || '')}</td><td>${esc(k.kaynak || '')}</td></tr>`).join('') || '<tr><td colspan="7" class="hint">Kayıt yok.</td></tr>';
+}
+function kayitlarAc() { if (!$('kBas').value) { $('kBas').value = $('kBit').value = bugun(); } $('kayitlar').showModal(); kayitListele(); }
+$('kayitlarBtn').onclick = kayitlarAc; $('csvBtn').onclick = kayitlarAc;
+$('kListele').onclick = kayitListele;
+$('kAra').addEventListener('keydown', ev => { if (ev.key === 'Enter') kayitListele(); });
+$('kExcel').onclick = () => { location.href = '/api/okumalar.csv?' + kayitSorgu(); };
+$('kayitlarKapat').onclick = () => $('kayitlar').close();
+$('clearBtn').onclick = () => { if (confirm('Ekrandaki liste ve sayaçlar sıfırlansın mı? (Kalıcı kayıtlar silinmez.)')) { log = []; persist(); drawLog(); } };
 
 // ---- kamera ----
 const video = $('video');
@@ -672,6 +861,7 @@ $('hKaydet').onclick = async () => {
   const ben = await r.json();
   $('kimin').textContent = '👤 ' + ben.kullanici;
   await loadIpCams();
+  yaziciYukle().catch(e => console.warn(e));
   if (ben.sifre_degismeli) {
     ilkGiris = true; $('ilkGirisUyari').hidden = false;
     kamFormTemizle(); sekmeAc('sHesap'); dlg.showModal(); $('hEski').focus();
@@ -706,7 +896,22 @@ function zxDecode() {
     return {text: r.getText(), tip: ZXing.BarcodeFormat[r.getBarcodeFormat()]};
   } catch { return null; }  // kod bulunamadı
 }
+let aynaSon = false;  // son okunan kod aynalı mıydı
+// Tuvaldeki karede kod arar: [{text, tip}]
+async function kodBul() {
+  if (detector) return (await detector.detect(cv)).filter(b => b.rawValue).map(b => ({text: b.rawValue, tip: b.format}));
+  const z = zxDecode();
+  if (z) return [z];
+  // Yıpranmış QR'lar için ara sıra jsQR ile de dene
+  if (frames % 3 === 0) {
+    const img = cx.getImageData(0, 0, cv.width, cv.height);
+    const r = jsQR(img.data, img.width, img.height, {inversionAttempts:'dontInvert'});
+    if (r && r.data) return [{text: r.data, tip: 'QR_CODE'}];
+  }
+  return [];
+}
 function applyMirror() {
+  // Sadece "hep aynalı" seçiliyse görüntüyü de çevir; otomatikte görüntü olduğu gibi kalır
   const t = cfg.mirror === '1' ? 'scaleX(-1)' : '';
   video.style.transform = t; ipimg.style.transform = t;
 }
@@ -718,21 +923,19 @@ async function scan() {
     // İnce çizgili barkodlar için en fazla 1280 piksel genişlikte tara
     const scale = Math.min(1, 1280 / w);
     cv.width = w * scale | 0; cv.height = h * scale | 0;
-    cx.setTransform(cfg.mirror === '1' ? -1 : 1, 0, 0, 1, cfg.mirror === '1' ? cv.width : 0, 0);
-    cx.drawImage(src, 0, 0, cv.width, cv.height);
-    cx.setTransform(1, 0, 0, 1, 0, 0);
-    if (detector) {
-      const r = await detector.detect(cv);
-      for (const b of r) if (b.rawValue) onCode(b.rawValue, 'kamera', b.format);
-    } else {
-      let sonuc = zxDecode();
-      // Yıpranmış QR'lar için ara sıra jsQR ile de dene
-      if (!sonuc && frames % 3 === 0) {
-        const img = cx.getImageData(0, 0, cv.width, cv.height);
-        const r = jsQR(img.data, img.width, img.height, {inversionAttempts:'dontInvert'});
-        if (r && r.data) sonuc = {text: r.data, tip: 'QR_CODE'};
+    // Ters baskı (filmin iç yüzüne basılmış) kodlar kameradan aynalı görünür.
+    // Otomatikte önce son başarılı yön, okunamazsa diğer yön denenir.
+    const yonler = cfg.mirror === '1' ? [true] : cfg.mirror === '0' ? [false] : [aynaSon, !aynaSon];
+    for (const ayna of yonler) {
+      cx.setTransform(ayna ? -1 : 1, 0, 0, 1, ayna ? cv.width : 0, 0);
+      cx.drawImage(src, 0, 0, cv.width, cv.height);
+      cx.setTransform(1, 0, 0, 1, 0, 0);
+      const bulunan = await kodBul();
+      if (bulunan.length) {
+        aynaSon = ayna;
+        for (const b of bulunan) onCode(b.text, 'kamera', b.tip);
+        break;
       }
-      if (sonuc) onCode(sonuc.text, 'kamera', sonuc.tip);
     }
   } catch (e) { console.warn(e); }
   busy = false; frames++;

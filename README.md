@@ -76,6 +76,33 @@ Varsayılan olarak ağdaki diğer bilgisayarlar da `http://<bu-bilgisayarın-IP'
 4. İsteğe bağlı **Kayıt (POST) adresi** verilirse her okuma `{code, valid, time}` olarak sisteme gönderilir.
    Kayıtlar ayrıca tarayıcıda saklanır ve CSV olarak indirilebilir.
 
+## YANLIŞ alarmı ve kural dışı okumalar
+
+Sıra dışı, mükerrer (daha önce DOĞRU okunmuş), okunamayan ya da kurala uymayan her okumada tüm ekranı
+kaplayan kırmızı **YANLIŞ** uyarısı çıkar ve iki tonlu yüksek siren çalar. Ayarlar → Alarm: "Siren (3 sn)",
+"Susturulana kadar çal" (ekrandaki **ALARMI SUSTUR** düğmesi ya da Boşluk/Enter) veya "Kısa bip".
+Tabloda nedeni yazar (ör. "Sıra dışı · beklenen: …-287", "Mükerrer: bu kod daha önce okundu").
+Görüntüde kalan ya da aynı anda görünen iki poşetin kodu tekrar sayılmaz; kod görüntüden çıkıp sonra
+yeniden gelirse mükerrer sayılır. Bilgisayarın ses düzeyi açık olmalıdır (gerekirse harici hoparlör).
+
+Ters baskı (filmin iç yüzüne basılmış, aynalı görünen) QR kodlar okunur: "Aynalı kodlar: Otomatik".
+
+## Kalıcı kayıtlar
+
+Her okuma sunucudaki veritabanına (`kayitlar.db`, ayarlarla aynı klasörde) zaman, kod, tip, durum,
+açıklama, kamera/okuyucu ve kullanıcı ile yazılır. Üstteki **Kayıtlar** düğmesinden tarih, durum ve koda
+göre süzülür; **Excel'e aktar** ile CSV (Excel'de doğrudan açılır) indirilir. "Ekranı temizle" sadece
+ekrandaki listeyi sıfırlar, kalıcı kayıtları silmez.
+
+## Zebra etiket yazıcı (ZT410 / ZT411)
+
+Kurulum → **Etiket yazıcı**: ağ (IP, port 9100) ya da Windows'a kurulu yazıcı (USB) seçilir, DPI ve
+etiket ölçüsü girilir. Son okunan kodun etiketi **Etiket bas** ile istenen adette (ör. 50) basılır; adet
+yazıcıya tek komutla (`^PQ`) gider. "Bant durunca otomatik yazdır" açıksa varsayılan adet otomatik basılır.
+Hazır şablon: QR + kod + durum + tarih. ZebraDesigner'da hazırlanan ZPL, `{KOD}` `{DURUM}` `{TARIH}`
+`{SAAT}` `{ADET}` yer tutucularıyla "Özel ZPL şablonu" alanına yapıştırılabilir. Basılan etiketler
+`baskilar` tablosuna kaydedilir. Yazıcı yokken test: `python araclar/sahte_yazici.py` (127.0.0.1:9100).
+
 ## Bant durdu algılama
 
 Ayarlardaki süre (varsayılan 3 sn) boyunca **yeni** bir kod okunmazsa (poşet kameranın önünde

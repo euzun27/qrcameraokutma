@@ -1,7 +1,7 @@
 ﻿; Dünyatek Hızlı Barkod Okuma Sistemi - Inno Setup kurulum betiği
 ; paketle.bat tarafından derlenir; çıktı: paketleme\cikti\DunyatekBarkod_Kurulum_<sürüm>.exe
 
-#define SURUM "1.0.0"
+#define SURUM "1.1.0"
 #define AD "Dünyatek Hızlı Barkod Okuma Sistemi"
 #define EXE "DunyatekBarkod.exe"
 
