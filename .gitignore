@@ -2,3 +2,6 @@ veri/
 __pycache__/
 paketleme/cikti/
 araclar/basilan_etiketler/
+# Kişisel notlar
+*.docx
+bılgılendırme.txt
