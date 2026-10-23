@@ -3,78 +3,121 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Dunyatek Kamera Okutma</title>
+<title>Dünyatek Hızlı Barkod Okuma Sistemi</title>
+<link rel="icon" href="/gorsel/logo.png">
 <style>
-:root{--bg:#0f1216;--panel:#181d23;--line:#2a313a;--text:#e8ecf1;--muted:#8b96a3;--ok:#1fae5b;--bad:#e5383b;--warn:#f0a202;--accent:#3d8bfd}
+:root{--bg:#10141a;--panel:#171c24;--panel2:#1d232d;--ust:#1b2028;--line:#28303c;--text:#e6ebf2;--muted:#8792a2;--ok:#1fae5b;--bad:#e5383b;--warn:#f0a202;--accent:#2f80ed;--accent2:#5aa2ff}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--text);font:15px/1.4 system-ui,Segoe UI,Roboto,sans-serif}
-header{display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:1px solid var(--line);flex-wrap:wrap}
-header h1{font-size:18px;margin:0;flex:1}
-button,select,input,textarea{font:inherit;color:var(--text);background:#222831;border:1px solid var(--line);border-radius:8px;padding:8px 12px}
-button{cursor:pointer}button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
-.pill{padding:4px 10px;border-radius:99px;font-weight:600;font-size:13px;background:#2a313a}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 "Segoe UI",system-ui,Roboto,sans-serif;display:flex;flex-direction:column}
+button,select,input,textarea{font:inherit;color:var(--text);background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:7px 11px}
+input:focus,select:focus,textarea:focus{outline:1px solid var(--accent);border-color:var(--accent)}
+button{cursor:pointer;transition:background .15s,border-color .15s}
+button:hover{border-color:var(--accent)}
+button.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+button.primary:hover{background:var(--accent2)}
+/* Üst bar */
+header.ust{display:flex;align-items:center;gap:16px;padding:0 16px;height:64px;background:var(--ust);border-bottom:3px solid var(--accent);flex:none}
+.marka{display:flex;align-items:center;gap:16px;flex:1;min-width:0}
+.marka img{height:42px;width:auto;display:block}
+.marka .ayrac{width:1px;height:34px;background:var(--line)}
+.marka .urun{display:flex;flex-direction:column;line-height:1.2;min-width:0}
+.marka .urun b{font-size:17px;font-weight:600;color:var(--accent2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.marka .urun small{font-size:11px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase}
+.ust-sag{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+#camSel{max-width:280px}
+#kimin{color:var(--muted);font-size:13px;padding:0 4px}
+.pill{padding:4px 12px;border-radius:99px;font-weight:600;font-size:12px;background:#2a313a;white-space:nowrap}
 .pill.run{background:var(--ok);color:#fff}.pill.stop{background:var(--warn);color:#111}
-main{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:16px;padding:16px}
-@media(max-width:900px){main{grid-template-columns:1fr}}
-.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px}
-.video-wrap{position:relative;background:#000;border-radius:10px;overflow:hidden;aspect-ratio:16/9}
+/* Üç sütun */
+main.duzen{flex:1;min-height:0;display:grid;grid-template-columns:290px minmax(0,1fr) minmax(380px,460px)}
+main.duzen>*{min-height:0;overflow:auto}
+aside.sol{background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column}
+section.orta{padding:16px;display:flex;flex-direction:column;gap:12px}
+aside.sag{background:var(--panel);border-left:1px solid var(--line);padding:14px;display:flex;flex-direction:column;gap:12px}
+.panel-bas{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;font-size:12px;font-weight:700;letter-spacing:1.5px;color:var(--muted);border-bottom:1px solid var(--line);text-transform:uppercase}
+/* Parametre bölümleri */
+details.bolum{border-bottom:1px solid var(--line)}
+details.bolum>summary{list-style:none;cursor:pointer;padding:12px 14px;font-size:12px;font-weight:700;letter-spacing:1px;color:var(--accent2);text-transform:uppercase;display:flex;justify-content:space-between}
+details.bolum>summary::-webkit-details-marker{display:none}
+details.bolum>summary::after{content:"▾";color:var(--muted)}
+details.bolum:not([open])>summary::after{content:"▸"}
+.alan{padding:0 14px 14px;display:flex;flex-direction:column;gap:4px}
+.alan label{font-size:12px;color:var(--muted);margin-top:6px}
+.alan input,.alan select,.alan textarea{width:100%}
+.sol-alt{margin-top:auto;padding:12px 14px;border-top:1px solid var(--line);position:sticky;bottom:0;background:var(--panel)}
+.sol-alt button{width:100%}
+/* Görüntü */
+.kart{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:12px}
+.video-wrap{position:relative;background:#000;border:1px dashed #33475f;border-radius:6px;overflow:hidden;aspect-ratio:16/9;width:100%}
 video{width:100%;height:100%;object-fit:contain;display:block}
-#flash{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:clamp(48px,10vw,120px);font-weight:900;letter-spacing:4px;opacity:0;transition:opacity .15s;pointer-events:none;text-shadow:0 4px 20px #000}
+#flash{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:clamp(48px,8vw,110px);font-weight:900;letter-spacing:4px;opacity:0;transition:opacity .15s;pointer-events:none;text-shadow:0 4px 20px #000}
 #flash.bad{background:rgba(229,56,59,.55);opacity:1}#flash.ok{background:rgba(31,174,91,.25);opacity:1}
-#fps{position:absolute;right:8px;bottom:6px;font-size:12px;color:#ccc;background:#0008;padding:2px 6px;border-radius:6px}
-.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px}
-#last{font-size:clamp(22px,3vw,34px);font-weight:800;word-break:break-all;margin:6px 0}
-#lastStatus{font-size:clamp(28px,4vw,52px);font-weight:900}
+#fps{position:absolute;right:8px;bottom:6px;font-size:12px;color:#ccc;background:#000a;padding:2px 8px;border-radius:4px}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.istat{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.istat>div{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px 14px}
+.istat span{display:block;font-size:11px;letter-spacing:1px;color:var(--muted);text-transform:uppercase}
+.istat b{font-size:28px;font-weight:700}
 .ok{color:var(--ok)}.bad{color:var(--bad)}
-.counts{display:flex;gap:16px;margin-top:8px;color:var(--muted)}.counts b{color:var(--text);font-size:20px}
-#stopPanel{display:none;border:3px solid var(--warn)}
+/* Sonuçlar */
+.bilgi{background:#16304f;border-left:4px solid var(--accent);border-radius:4px;padding:10px 14px;color:#cfe2ff}
+#stopPanel{display:none;border:2px solid var(--warn);border-radius:8px;padding:12px 14px;background:#2a2410}
 #stopPanel.show{display:block}
-#stopPanel h2{margin:0 0 8px;color:var(--warn)}
-table{width:100%;border-collapse:collapse;font-size:14px}
-td,th{padding:6px 8px;border-bottom:1px solid var(--line);text-align:left}
-th{color:var(--muted);font-weight:500}
-.logbox{max-height:320px;overflow:auto;margin-top:8px}
-details summary{cursor:pointer;font-weight:600}
-.grid2{display:grid;grid-template-columns:180px 1fr;gap:8px;align-items:center;margin-top:10px}
-.grid2 input,.grid2 select,.grid2 textarea{width:100%}
-.hint{color:var(--muted);font-size:13px}
+#stopPanel h2{margin:0 0 6px;color:var(--warn);font-size:15px;letter-spacing:1px}
+#stopCode{font-size:clamp(24px,3vw,40px);font-weight:900;word-break:break-all}
+.baslik-kucuk{font-size:11px;letter-spacing:1px;color:var(--muted);text-transform:uppercase}
+#last{font-size:clamp(20px,2.4vw,30px);font-weight:800;word-break:break-all;margin:2px 0}
+#lastStatus{font-size:clamp(24px,3vw,40px);font-weight:900}
+#seqBox{font-size:13px;color:var(--muted);margin-top:6px}
+#seqBox b{color:var(--text);word-break:break-all}
+table{width:100%;border-collapse:collapse;font-size:13px}
+td,th{padding:7px 8px;border-bottom:1px solid var(--line);text-align:left}
+th{color:var(--muted);font-weight:600;font-size:11px;letter-spacing:1px;text-transform:uppercase;position:sticky;top:0;background:var(--panel2)}
+td.kod{font-family:Consolas,"Cascadia Mono",monospace;word-break:break-all}
+td.no{color:var(--muted);width:36px}
+.tip{display:inline-block;padding:1px 8px;border-radius:4px;background:#163a66;color:#8cc0ff;font-size:12px;white-space:nowrap}
+.logbox{flex:1;min-height:200px;overflow:auto;border:1px solid var(--line);border-radius:8px}
+.hint{color:var(--muted);font-size:12px}
+@media(max-width:1400px){.marka .urun small{display:none}.marka .urun b{white-space:normal;font-size:15px}.marka{gap:12px}}
+@media(max-width:1280px){main.duzen{grid-template-columns:minmax(0,1fr) minmax(340px,420px)}aside.sol{grid-column:1/-1;order:3;border-right:0;border-top:1px solid var(--line)}}
+@media(max-width:900px){main.duzen{display:flex;flex-direction:column;overflow:auto}main.duzen>*{overflow:visible;flex:none;min-height:auto}header.ust{height:auto;padding:10px 16px;flex-wrap:wrap}.logbox{flex:none;max-height:420px}}
 /* Etiket */
 #label{background:#fff;color:#000;border-radius:6px;padding:10px;display:flex;gap:12px;align-items:center;width:100%;max-width:420px}
-#label .q{width:110px;height:110px;flex:none}#label .q img,#label .q svg{width:100%;height:100%}
+#label .q{width:100px;height:100px;flex:none}#label .q img,#label .q svg{width:100%;height:100%}
 #label .t{flex:1;min-width:0}
-#label .code{font-size:20px;font-weight:800;word-break:break-all}
-#label .st{font-size:18px;font-weight:900;margin-top:4px}
+#label .code{font-size:18px;font-weight:800;word-break:break-all}
+#label .st{font-size:16px;font-weight:900;margin-top:4px}
 #label .dt{font-size:12px;margin-top:4px}
 #printLabel{display:none}
-#stopCode{font-size:clamp(28px,4vw,48px);font-weight:900;word-break:break-all}
-header h1 .marka{color:var(--accent);font-weight:900;letter-spacing:.5px}
-#kimin{color:var(--muted);font-size:14px}
 /* Kurulum penceresi */
-dialog{background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:14px;padding:0;width:min(760px,calc(100vw - 32px));max-height:calc(100vh - 32px)}
-dialog::backdrop{background:#000a}
+dialog{background:var(--panel);color:var(--text);border:1px solid var(--line);border-top:3px solid var(--accent);border-radius:8px;padding:0;width:min(780px,calc(100vw - 32px));max-height:calc(100vh - 32px)}
+dialog::backdrop{background:#000b}
 .dlg-bas{display:flex;align-items:center;gap:8px;padding:12px 16px;border-bottom:1px solid var(--line)}
-.dlg-bas h2{margin:0;font-size:17px;flex:1}
+.dlg-bas h2{margin:0;font-size:16px;flex:1}
 .sekmeler{display:flex;gap:4px;padding:10px 16px 0;border-bottom:1px solid var(--line)}
-.sekmeler button{border:0;border-radius:8px 8px 0 0;background:none;color:var(--muted);padding:8px 14px}
-.sekmeler button.aktif{background:#222831;color:var(--text);font-weight:600}
+.sekmeler button{border:0;border-radius:6px 6px 0 0;background:none;color:var(--muted);padding:8px 14px}
+.sekmeler button.aktif{background:var(--panel2);color:var(--text);font-weight:600;box-shadow:inset 0 -2px 0 var(--accent)}
 .sekme{padding:16px;overflow:auto;max-height:calc(100vh - 160px)}
 .sekme[hidden]{display:none}
+.grid2{display:grid;grid-template-columns:180px 1fr;gap:8px;align-items:center;margin-top:10px}
+.grid2 input,.grid2 select,.grid2 textarea{width:100%}
 .kamtablo td:last-child{white-space:nowrap;text-align:right}
 .kamtablo button{padding:5px 10px;font-size:13px}
 button.tehlike{border-color:var(--bad);color:var(--bad)}
 .mesaj{min-height:20px;margin-top:8px;font-size:14px}
 .mesaj.hata{color:var(--bad)}.mesaj.basari{color:var(--ok)}
-#onizleme{display:none;margin-top:12px;background:#000;border-radius:8px;aspect-ratio:16/9;width:100%;object-fit:contain}
-.uyari{background:#f0a20222;border:1px solid var(--warn);color:var(--warn);border-radius:8px;padding:8px 12px;margin-bottom:12px;font-size:14px}
+#onizleme{display:none;margin-top:12px;background:#000;border-radius:6px;aspect-ratio:16/9;width:100%;object-fit:contain}
+.uyari{background:#f0a20222;border:1px solid var(--warn);color:var(--warn);border-radius:6px;padding:8px 12px;margin-bottom:12px;font-size:14px}
 @media(max-width:600px){.grid2{grid-template-columns:1fr}}
 #kamForm.okuyucu .t-kamera,#kamForm:not(.okuyucu) .t-okuyucu,.row.okuyucu .t-kamera{display:none}
 #okuyucuPanel{display:none;position:absolute;inset:0;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center;padding:16px}
 #okuyucuPanel.goster{display:flex}
-#okuyucuDurum{font-size:20px;color:var(--muted)}
+#okuyucuDurum{font-size:18px;color:var(--muted)}
 #okuyucuDurum.bagli{color:var(--ok)}#okuyucuDurum.kopuk{color:var(--bad)}
 #okuyucuSon{font-size:clamp(24px,4vw,44px);font-weight:800;word-break:break-all}
 @media print{
-  body{background:#fff}
+  body{background:#fff;display:block}
   body>*:not(#printLabel){display:none!important}
   #printLabel{display:block}
   #printLabel #label{max-width:none;border-radius:0;display:flex!important}
@@ -82,14 +125,20 @@ button.tehlike{border-color:var(--bad);color:var(--bad)}
 </style>
 </head>
 <body>
-<header>
-  <h1><span class="marka">DUNYATEK</span> Kamera Okutma</h1>
-  <span id="state" class="pill">Kamera kapalı</span>
-  <select id="camSel" title="Kamera"></select>
-  <button id="startBtn" class="primary">Kamerayı başlat</button>
-  <span id="kimin"></span>
-  <button id="kurulumBtn">Kurulum</button>
-  <button id="cikisBtn">Çıkış</button>
+<header class="ust">
+  <div class="marka">
+    <img src="/gorsel/logo.png" alt="Dünyatek Bilişim">
+    <span class="ayrac"></span>
+    <div class="urun"><b>Hızlı Barkod Okuma Sistemi</b><small>Dünyatek Bilişim Teknolojileri</small></div>
+  </div>
+  <div class="ust-sag">
+    <span id="state" class="pill">Kamera kapalı</span>
+    <select id="camSel" title="Kamera / okuyucu"></select>
+    <button id="startBtn" class="primary">▶ Başlat</button>
+    <span id="kimin"></span>
+    <button id="kurulumBtn">⚙ Kurulum</button>
+    <button id="cikisBtn">Çıkış</button>
+  </div>
 </header>
 <dialog id="kurulum">
   <div class="dlg-bas"><h2>Kurulum</h2><button id="kurulumKapat" title="Kapat">✕</button></div>
@@ -132,9 +181,61 @@ button.tehlike{border-color:var(--bad);color:var(--bad)}
     <div class="mesaj" id="hMesaj"></div>
   </div>
 </dialog>
-<main>
-  <section>
-    <div class="card">
+<main class="duzen">
+  <aside class="sol">
+    <div class="panel-bas">Parametreler</div>
+    <details class="bolum" open>
+      <summary>Doğrulama</summary>
+      <div class="alan">
+        <label for="cfgMode">Doğrulama yöntemi</label>
+        <select id="cfgMode">
+          <option value="seq">Sıra kontrolü (önceki kod + adım)</option>
+          <option value="regex">Kural (desen)</option>
+          <option value="list">Geçerli kod listesi</option>
+          <option value="api">Sistem API (HTTP)</option>
+        </select>
+        <label for="cfgNext">Sıradaki beklenen kod</label><input id="cfgNext" placeholder="boş = ilk okunan kod sırayı başlatır">
+        <label for="cfgStep">Sıra adımı</label><input id="cfgStep" type="number" step="1">
+        <label for="cfgRegex">Desen (regex)</label><input id="cfgRegex">
+        <label for="cfgList">Geçerli kodlar</label><textarea id="cfgList" rows="3" placeholder="Her satıra bir kod"></textarea>
+        <label for="cfgApi">Doğrulama API adresi</label><input id="cfgApi" placeholder="http://sunucu/kontrol?kod={code}">
+      </div>
+    </details>
+    <details class="bolum" open>
+      <summary>Kod okuma</summary>
+      <div class="alan">
+        <label for="cfgFormats">Okunacak kodlar</label><select id="cfgFormats"><option value="all">Tüm barkodlar (QR, EAN, Code128, DataMatrix…)</option><option value="qr">Sadece QR (daha hızlı)</option></select>
+        <label for="cfgMirror">Görüntüyü aynala</label><select id="cfgMirror"><option value="0">Hayır</option><option value="1">Evet (kamera ters gösteriyorsa)</option></select>
+        <label for="cfgDedup">Aynı kodu tekrar sayma (sn)</label><input id="cfgDedup" type="number" min="0.2" step="0.1">
+      </div>
+    </details>
+    <details class="bolum">
+      <summary>Bant ve etiket</summary>
+      <div class="alan">
+        <label for="cfgStop">Bant durdu sayılması (sn)</label><input id="cfgStop" type="number" min="1" step="0.5">
+        <label for="cfgAutoPrint">Durunca otomatik yazdır</label><select id="cfgAutoPrint"><option value="0">Hayır</option><option value="1">Evet</option></select>
+        <label for="cfgSound">Sesli uyarı</label><select id="cfgSound"><option value="1">Açık</option><option value="0">Kapalı</option></select>
+      </div>
+    </details>
+    <details class="bolum">
+      <summary>Kayıt</summary>
+      <div class="alan">
+        <label for="cfgPost">Kayıt (POST) adresi</label><input id="cfgPost" placeholder="boş = sadece bu bilgisayara kaydet">
+      </div>
+    </details>
+    <details class="bolum">
+      <summary>Yardım</summary>
+      <div class="alan hint">
+        <p>Sıra kontrolü: koddaki son sayı bir önceki doğru koddan "adım" kadar büyük olmalı (ör. PSK-000123 → PSK-000124), ön ve son ek aynı kalmalı. Farklı gelen kod YANLIŞ olur, sıra son doğru koddan devam eder. Bir poşet gerçekten eksikse "Sırayı son koddan devam ettir" ile yeni koddan devam edilir.</p>
+        <p>Kameralar ve barkod okuyucular üstteki <b>Kurulum</b> düğmesinden eklenir; kamera adresle de açılabilir: <code>?kamera=ad veya IP</code>.</p>
+        <p>API yanıtı: HTTP 200 ve JSON içinde <code>valid/gecerli/ok</code> alanı true ise DOĞRU sayılır; alan yoksa 200 = DOĞRU, diğer durumlar YANLIŞ. Kayıt adresine her okuma <code>{code, valid, time}</code> JSON olarak POST edilir.</p>
+      </div>
+    </details>
+    <div class="sol-alt"><button id="saveCfg" class="primary">Parametreleri kaydet</button></div>
+  </aside>
+
+  <section class="orta">
+    <div class="kart">
       <div class="video-wrap">
         <video id="video" playsinline muted></video>
         <img id="ipimg" alt="" style="display:none;width:100%;height:100%;object-fit:contain">
@@ -142,63 +243,36 @@ button.tehlike{border-color:var(--bad);color:var(--bad)}
         <div id="flash"></div>
         <div id="fps"></div>
       </div>
-      <div class="row">
+      <div class="row" style="margin-top:10px">
         <input id="manual" placeholder="Elle kod / USB okuyucu (Enter)" style="flex:1;min-width:200px">
         <button id="stopTest">Bant durdu (elle)</button>
       </div>
     </div>
-    <div class="card" style="margin-top:16px">
-      <details>
-        <summary>Ayarlar</summary>
-        <div class="grid2">
-          <label>Doğrulama yöntemi</label>
-          <select id="cfgMode">
-            <option value="seq">Sıra kontrolü (önceki kod + adım)</option>
-            <option value="regex">Kural (desen)</option>
-            <option value="list">Geçerli kod listesi</option>
-            <option value="api">Sistem API (HTTP)</option>
-          </select>
-          <label>Sıradaki beklenen kod</label><input id="cfgNext" placeholder="boş = ilk okunan kod sırayı başlatır">
-          <label>Sıra adımı</label><input id="cfgStep" type="number" step="1">
-          <label>Desen (regex)</label><input id="cfgRegex">
-          <label>Geçerli kodlar</label><textarea id="cfgList" rows="3" placeholder="Her satıra bir kod"></textarea>
-          <label>Doğrulama API adresi</label><input id="cfgApi" placeholder="http://192.168.1.152/kontrol?kod={code}">
-          <label>Kayıt (POST) adresi</label><input id="cfgPost" placeholder="boş = sadece bu bilgisayara kaydet">
-          <label>Bant durdu sayılması (sn)</label><input id="cfgStop" type="number" min="1" step="0.5">
-          <label>Aynı kodu tekrar sayma (sn)</label><input id="cfgDedup" type="number" min="0.2" step="0.1">
-          <label>Durunca otomatik yazdır</label><select id="cfgAutoPrint"><option value="0">Hayır</option><option value="1">Evet</option></select>
-          <label>Sesli uyarı</label><select id="cfgSound"><option value="1">Açık</option><option value="0">Kapalı</option></select>
-          <label>Okunacak kodlar</label><select id="cfgFormats"><option value="all">Tüm barkodlar (QR, EAN, Code128, DataMatrix…)</option><option value="qr">Sadece QR (daha hızlı)</option></select>
-          <label>Görüntüyü aynala</label><select id="cfgMirror"><option value="0">Hayır</option><option value="1">Evet (kamera ters gösteriyorsa)</option></select>
-        </div>
-        <p class="hint">Sıra kontrolü: koddaki son sayı bir önceki doğru koddan "adım" kadar büyük olmalı (ör. PSK-000123 → PSK-000124), ön ve son ek aynı kalmalı. Farklı gelen kod YANLIŞ olur, sıra son doğru koddan devam eder. Bir poşet gerçekten eksikse "Sırayı son koddan devam ettir" ile yeni koddan devam edilir.<br>
-        IP kameralar üstteki <b>Kurulum</b> düğmesinden eklenir; kamera adresle de açılabilir: <code>?kamera=kamera adı veya IP</code>.<br>
-        API yanıtı: HTTP 200 ve JSON içinde <code>valid/gecerli/ok</code> alanı true ise DOĞRU sayılır; alan yoksa 200 = DOĞRU, diğer durumlar YANLIŞ. Kayıt adresine her okuma <code>{code, valid, time}</code> JSON olarak POST edilir.</p>
-        <div class="row"><button id="saveCfg" class="primary">Kaydet</button></div>
-      </details>
+    <div class="istat">
+      <div><span>Toplam</span><b id="cTotal">0</b></div>
+      <div><span>Doğru</span><b id="cOk" class="ok">0</b></div>
+      <div><span>Yanlış</span><b id="cBad" class="bad">0</b></div>
     </div>
   </section>
-  <section>
-    <div id="stopPanel" class="card">
-      <h2>BANT DURDU · Son barkod</h2>
+
+  <aside class="sag">
+    <div class="bilgi" id="bilgi">Okuma bekleniyor.</div>
+    <div id="stopPanel">
+      <h2>BANT DURDU · SON BARKOD</h2>
       <div id="stopCode"></div>
-      <div id="stopStatus" style="font-size:28px;font-weight:900"></div>
+      <div id="stopStatus" style="font-size:24px;font-weight:900"></div>
     </div>
-    <div class="card" id="printArea" style="margin-top:16px">
-      <div class="hint">Son okunan</div>
+    <div class="kart" id="printArea">
+      <div class="baslik-kucuk">Son okunan</div>
       <div id="last">—</div>
       <div id="lastStatus"></div>
-      <div id="seqBox" class="hint" style="font-size:18px">Beklenen sonraki kod: <b id="expected" style="color:var(--text)">—</b>
-        <button id="seqFromLast" style="margin-left:8px">Sırayı son koddan devam ettir</button></div>
-      <div class="counts"><span>Toplam <b id="cTotal">0</b></span><span>Doğru <b id="cOk" class="ok">0</b></span><span>Yanlış <b id="cBad" class="bad">0</b></span></div>
-      <div class="row" id="labelHolder"><div id="label" style="display:none"><div class="q" id="labelQr"></div><div class="t"><div class="code" id="labelCode"></div><div class="st" id="labelSt"></div><div class="dt" id="labelDt"></div></div></div></div>
-      <div class="row"><button id="printBtn">Etiketi yazdır</button><button id="csvBtn">Kayıtları indir (CSV)</button><button id="clearBtn">Kayıtları temizle</button></div>
+      <div id="seqBox">Beklenen sonraki kod: <b id="expected">—</b>
+        <div class="row" style="margin-top:6px"><button id="seqFromLast">Sırayı son koddan devam ettir</button></div></div>
+      <div class="row" id="labelHolder" style="margin-top:10px"><div id="label" style="display:none"><div class="q" id="labelQr"></div><div class="t"><div class="code" id="labelCode"></div><div class="st" id="labelSt"></div><div class="dt" id="labelDt"></div></div></div></div>
+      <div class="row" style="margin-top:10px"><button id="printBtn">Etiketi yazdır</button><button id="csvBtn">CSV indir</button><button id="clearBtn">Kayıtları temizle</button></div>
     </div>
-    <div class="card" style="margin-top:16px">
-      <b>Okuma kaydı</b>
-      <div class="logbox"><table><thead><tr><th>Saat</th><th>Kod</th><th>Durum</th></tr></thead><tbody id="log"></tbody></table></div>
-    </div>
-  </section>
+    <div class="logbox"><table><thead><tr><th>#</th><th>İçerik</th><th>Tip</th><th>Durum</th><th>Saat</th></tr></thead><tbody id="log"></tbody></table></div>
+  </aside>
 </main>
 <div id="printLabel"></div>
 <script src="vendor/jsQR.js"></script>
@@ -288,14 +362,22 @@ function record(entry) {
 
 // ---- okuma işleme ----
 let sessionRead = false, lastCode = null, lastSeen = 0, lastNewAt = 0, lastEntry = null, stopped = false, printedFor = null;
-async function onCode(code, src) {
+// ZXing / BarcodeDetector biçim adlarını okunur hale getirir: EAN_13 -> EAN-13, qr_code -> QR
+const TIP_ADLARI = {QR_CODE:'QR', DATA_MATRIX:'DataMatrix', PDF_417:'PDF417', AZTEC:'Aztec', MAXICODE:'MaxiCode', CODABAR:'Codabar', ITF:'ITF', RSS_14:'GS1 DataBar', RSS_EXPANDED:'GS1 DataBar Exp.'};
+function tipAdi(t) {
+  if (!t) return '';
+  const u = String(t).toUpperCase();
+  return TIP_ADLARI[u] || u.replace(/^(CODE|EAN|UPC)_?(\w+)$/, (m, a, b) => a === 'CODE' ? 'Code' + b : a + '-' + b).replace(/_/g, ' ');
+}
+async function onCode(code, src, tip) {
   const now = performance.now();
   if (code === lastCode && now - lastSeen < cfg.dedup * 1000) { lastSeen = now; return; }
   // Sıra modunda son doğru kodun yeniden görünmesi (poşet hâlâ önde) yeni okuma sayılmaz
   if (cfg.mode === 'seq' && code === seqLastOk) { lastCode = code; lastSeen = now; return; }
   lastCode = code; lastSeen = now; lastNewAt = now; sessionRead = true;
   if (stopped) resume();
-  const entry = {code, valid: undefined, time: new Date().toISOString(), src};
+  const entry = {code, valid: undefined, time: new Date().toISOString(), src,
+    tip: tipAdi(tip) || (src === 'okuyucu' ? 'Okuyucu' : src === 'elle' ? 'Elle' : '')};
   lastEntry = entry;
   log.unshift(entry); if (log.length > 5000) log.length = 5000;
   render(entry, true);
@@ -328,8 +410,10 @@ function render(entry, pending) {
 function drawLog() {
   const ok = log.filter(e => e.valid === true).length;
   $('cTotal').textContent = log.length; $('cOk').textContent = ok; $('cBad').textContent = log.length - ok;
-  $('log').innerHTML = log.slice(0, 200).map(e =>
-    `<tr><td>${new Date(e.time).toLocaleTimeString('tr-TR')}</td><td>${esc(e.code)}</td><td class="${e.valid === true ? 'ok' : 'bad'}">${statusText(e.valid)}</td></tr>`).join('');
+  $('log').innerHTML = log.slice(0, 200).map((e, i) =>
+    `<tr><td class="no">${log.length - i}</td><td class="kod">${esc(e.code)}</td><td>${e.tip ? '<span class="tip">' + esc(e.tip) + '</span>' : ''}</td>`
+    + `<td class="${e.valid === true ? 'ok' : 'bad'}">${statusText(e.valid)}</td><td>${new Date(e.time).toLocaleTimeString('tr-TR')}</td></tr>`).join('');
+  $('bilgi').textContent = log.length ? `${log.length} kod okundu · ${ok} doğru · ${log.length - ok} yanlış.` : 'Okuma bekleniyor.';
 }
 const esc = s => s.replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 let flashT;
@@ -375,7 +459,7 @@ $('stopTest').onclick = () => { if (lastEntry) beltStopped(); };
 $('printBtn').onclick = () => { if (lastEntry) { buildLabel(lastEntry); window.print(); } };
 $('manual').addEventListener('keydown', ev => { if (ev.key === 'Enter' && ev.target.value.trim()) { onCode(ev.target.value.trim(), 'elle'); ev.target.value = ''; } });
 $('csvBtn').onclick = () => {
-  const rows = [['zaman','kod','durum']].concat(log.map(e => [e.time, e.code, statusText(e.valid)]));
+  const rows = [['zaman','kod','tip','durum']].concat(log.map(e => [e.time, e.code, e.tip || '', statusText(e.valid)]));
   const csv = '﻿' + rows.map(r => r.map(v => '"' + String(v).replace(/"/g, '""') + '"').join(';')).join('\r\n');
   const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], {type:'text/csv'})); a.download = 'bant-okumalari.csv'; a.click();
 };
@@ -441,7 +525,7 @@ function startOkuyucu(kid) {
     else onCode(kod, 'okuyucu');
   });
   okuyucuAkis.onerror = () => durum('kopuk');  // EventSource kendisi yeniden bağlanır
-  running = true; setState('run'); $('startBtn').textContent = 'Yeniden bağlan';
+  running = true; setState('run'); $('startBtn').textContent = '↻ Yeniden bağlan';
   $('fps').textContent = 'Barkod okuyucu';
 }
 function startIp(path) {
@@ -449,7 +533,7 @@ function startIp(path) {
   src = ipimg;
   ipimg.onerror = () => { $('fps').textContent = 'Kameraya bağlanılamadı, tekrar deneniyor…'; setTimeout(() => { if (src === ipimg && running) ipimg.src = path + '&t=' + Date.now(); }, 2000); };
   ipimg.src = path + '&t=' + Date.now();
-  running = true; setState('run'); $('startBtn').textContent = 'Kamerayı yeniden başlat';
+  running = true; setState('run'); $('startBtn').textContent = '↻ Yeniden başlat';
   startDetector(); if (!looping) loop();
 }
 async function start() {
@@ -470,7 +554,7 @@ async function start() {
   video.srcObject = stream; await video.play();
   await listCams();
   await startDetector();
-  running = true; setState('run'); $('startBtn').textContent = 'Kamerayı yeniden başlat';
+  running = true; setState('run'); $('startBtn').textContent = '↻ Yeniden başlat';
   if (!looping) loop();
 }
 $('startBtn').onclick = start;
@@ -618,7 +702,8 @@ function zxDecode() {
   if (!reader) return null;
   try {
     const bmp = new ZXing.BinaryBitmap(new ZXing.HybridBinarizer(new ZXing.HTMLCanvasElementLuminanceSource(cv)));
-    return reader.decodeWithState(bmp).getText();
+    const r = reader.decodeWithState(bmp);
+    return {text: r.getText(), tip: ZXing.BarcodeFormat[r.getBarcodeFormat()]};
   } catch { return null; }  // kod bulunamadı
 }
 function applyMirror() {
@@ -638,16 +723,16 @@ async function scan() {
     cx.setTransform(1, 0, 0, 1, 0, 0);
     if (detector) {
       const r = await detector.detect(cv);
-      for (const b of r) if (b.rawValue) onCode(b.rawValue, 'kamera');
+      for (const b of r) if (b.rawValue) onCode(b.rawValue, 'kamera', b.format);
     } else {
-      let code = zxDecode();
+      let sonuc = zxDecode();
       // Yıpranmış QR'lar için ara sıra jsQR ile de dene
-      if (!code && frames % 3 === 0) {
+      if (!sonuc && frames % 3 === 0) {
         const img = cx.getImageData(0, 0, cv.width, cv.height);
         const r = jsQR(img.data, img.width, img.height, {inversionAttempts:'dontInvert'});
-        if (r && r.data) code = r.data;
+        if (r && r.data) sonuc = {text: r.data, tip: 'QR_CODE'};
       }
-      if (code) onCode(code, 'kamera');
+      if (sonuc) onCode(sonuc.text, 'kamera', sonuc.tip);
     }
   } catch (e) { console.warn(e); }
   busy = false; frames++;

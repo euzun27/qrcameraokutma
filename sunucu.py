@@ -36,7 +36,7 @@ import webbrowser
 from http.cookies import SimpleCookie
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 
-UYGULAMA = "Dunyatek Kamera Okutma"
+UYGULAMA = "Dünyatek Hızlı Barkod Okuma Sistemi"
 KOK = os.path.dirname(os.path.abspath(__file__))
 VERI_DIZINI = os.path.join(KOK, "veri")
 AYAR_DOSYASI = os.path.join(VERI_DIZINI, "ayarlar.json")
@@ -55,7 +55,7 @@ COMMON_PATHS = [
 _found = {}  # (ip, kullanıcı) -> çalışan tam adres
 
 # Giriş yapmadan açılabilen dosyalar; giriş sonrası da yalnızca bu listedekiler sunulur
-ACIK_DOSYALAR = {"/giris.html"}
+ACIK_DOSYALAR = {"/giris.html", "/gorsel/logo.png"}
 KORUNAN_DOSYALAR = {"/index.html", "/vendor/jsQR.js", "/vendor/qrcode.js", "/vendor/zxing.min.js"}
 
 

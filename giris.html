@@ -3,26 +3,31 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Giriş · Dunyatek Kamera Okutma</title>
+<title>Giriş · Dünyatek Hızlı Barkod Okuma Sistemi</title>
+<link rel="icon" href="/gorsel/logo.png">
 <style>
-:root{--bg:#0f1216;--panel:#181d23;--line:#2a313a;--text:#e8ecf1;--muted:#8b96a3;--bad:#e5383b;--accent:#3d8bfd}
+:root{--bg:#10141a;--panel:#171c24;--panel2:#1d232d;--line:#28303c;--text:#e6ebf2;--muted:#8792a2;--bad:#e5383b;--accent:#2f80ed;--accent2:#5aa2ff}
 *{box-sizing:border-box}
-body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--bg);color:var(--text);font:15px/1.4 system-ui,Segoe UI,Roboto,sans-serif;padding:16px}
-.kutu{width:100%;max-width:360px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:28px 24px}
-.marka{text-align:center;margin-bottom:22px}
-.marka .logo{font-size:26px;font-weight:900;letter-spacing:1px;color:var(--accent)}
-.marka .alt{color:var(--muted);font-size:14px;margin-top:2px}
-label{display:block;font-size:13px;color:var(--muted);margin:14px 0 6px}
-input{width:100%;font:inherit;color:var(--text);background:#222831;border:1px solid var(--line);border-radius:8px;padding:10px 12px}
-input:focus{outline:2px solid var(--accent);outline-offset:-1px}
-button{width:100%;margin-top:22px;font:inherit;font-weight:600;color:#fff;background:var(--accent);border:0;border-radius:8px;padding:11px;cursor:pointer}
+body{margin:0;min-height:100vh;display:flex;flex-direction:column;background:radial-gradient(ellipse at top,#1a2433 0%,var(--bg) 60%);color:var(--text);font:15px/1.45 "Segoe UI",system-ui,Roboto,sans-serif}
+main{flex:1;display:flex;align-items:center;justify-content:center;padding:16px}
+.kutu{width:100%;max-width:380px;background:var(--panel);border:1px solid var(--line);border-top:3px solid var(--accent);border-radius:8px;padding:30px 28px 24px;box-shadow:0 20px 50px #0008}
+.marka{text-align:center;margin-bottom:24px}
+.marka img{width:220px;max-width:100%;height:auto}
+.marka .urun{margin-top:12px;font-size:16px;font-weight:600;color:var(--accent2)}
+label{display:block;font-size:12px;color:var(--muted);margin:14px 0 6px;letter-spacing:.5px;text-transform:uppercase}
+input{width:100%;font:inherit;color:var(--text);background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:10px 12px}
+input:focus{outline:1px solid var(--accent);border-color:var(--accent)}
+button{width:100%;margin-top:22px;font:inherit;font-weight:600;color:#fff;background:var(--accent);border:0;border-radius:6px;padding:11px;cursor:pointer}
+button:hover{background:var(--accent2)}
 button:disabled{opacity:.6;cursor:default}
 #hata{color:var(--bad);min-height:20px;margin-top:12px;font-size:14px;text-align:center}
+footer{text-align:center;color:var(--muted);font-size:12px;padding:12px}
 </style>
 </head>
 <body>
+<main>
 <form class="kutu" id="form" autocomplete="on">
-  <div class="marka"><div class="logo">DUNYATEK</div><div class="alt">Kamera Okutma</div></div>
+  <div class="marka"><img src="/gorsel/logo.png" alt="Dünyatek Bilişim"><div class="urun">Hızlı Barkod Okuma Sistemi</div></div>
   <label for="kullanici">Kullanıcı adı</label>
   <input id="kullanici" name="username" autocomplete="username" required autofocus>
   <label for="sifre">Şifre</label>
@@ -30,6 +35,8 @@ button:disabled{opacity:.6;cursor:default}
   <button id="btn" type="submit">Giriş yap</button>
   <div id="hata"></div>
 </form>
+</main>
+<footer>© Dünyatek Bilişim Teknolojileri</footer>
 <script>
 document.getElementById('form').addEventListener('submit', async ev => {
   ev.preventDefault();
