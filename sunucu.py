@@ -15,14 +15,17 @@ Ayarlar (kullanıcı, kameralar) veri/ayarlar.json dosyasında tutulur.
   192.168.1.152                      -> bilinen MJPEG / anlık görüntü adresleri sırayla denenir
   http://kullanici:sifre@ip/yol      -> MJPEG akışı veya tek JPEG (tek JPEG ise sürekli yenilenir)
   rtsp://kullanici:sifre@ip:554/yol  -> ffmpeg kuruluysa MJPEG'e çevrilir
+/okuyucu?id=<no>        -> kayıtlı barkod okuyucunun (TCP) kodları, Server-Sent Events olarak
 """
 import argparse
 import hashlib
 import hmac
 import json
 import os
+import queue
 import secrets
 import shutil
+import socket
 import subprocess
 import sys
 import threading
@@ -95,8 +98,93 @@ def ayar_yaz(a):
 
 def kamera_disari(k):
     """Kamera kaydını tarayıcıya gönderilecek hale getirir (şifre gönderilmez)."""
-    return {"id": k["id"], "ad": k["ad"], "adres": k["adres"],
+    return {"id": k["id"], "ad": k["ad"], "adres": k["adres"], "tur": k.get("tur", "kamera"),
+            "port": k.get("port"), "okunamadi": k.get("okunamadi", ""),
             "kullanici": k.get("kullanici", ""), "sifre_var": bool(k.get("sifre"))}
+
+
+# ---------------- barkod okuyucu (TCP) ----------------
+# Endüstriyel okuyucular (Hikrobot, Cognex, Datalogic…) okudukları kodu TCP üzerinden metin
+# olarak gönderir. Sunucu okuyucuya istemci olarak bağlanır; kodlar CR/LF/ETX/NUL ile ayrılır,
+# ayraç gelmezse kısa bir sessizlikten sonra gelen metin tek kod sayılır.
+AYRACLAR = b"\r\n\x03\x00"
+
+
+class Okuyucu:
+    def __init__(self, host, port):
+        self.host, self.port = host, port
+        self.aboneler = set()
+        self.durum = "baglaniyor"
+        self.kilit = threading.Lock()
+        threading.Thread(target=self.calis, daemon=True).start()
+
+    def yay(self, olay, veri):
+        with self.kilit:
+            for q in list(self.aboneler):
+                try:
+                    q.put_nowait((olay, veri))
+                except queue.Full:
+                    pass
+
+    def durum_ayarla(self, durum):
+        if durum != self.durum:
+            self.durum = durum
+            self.yay("durum", durum)
+
+    def calis(self):
+        while True:
+            try:
+                with socket.create_connection((self.host, self.port), timeout=5) as s:
+                    s.settimeout(0.15)
+                    self.durum_ayarla("bagli")
+                    print(f"[okuyucu] {self.host}:{self.port} bağlandı")
+                    tampon = b""
+                    while True:
+                        try:
+                            parca = s.recv(4096)
+                            if not parca:
+                                break
+                            tampon += parca
+                        except socket.timeout:
+                            # Ayraçsız gönderen okuyucular: sessizlik = kod bitti
+                            if tampon:
+                                self.kod(tampon)
+                                tampon = b""
+                            continue
+                        while True:
+                            i = next((i for i, b in enumerate(tampon) if b in AYRACLAR), -1)
+                            if i < 0:
+                                break
+                            self.kod(tampon[:i])
+                            tampon = tampon[i + 1:]
+                        if len(tampon) > 4096:
+                            tampon = b""
+            except OSError:
+                pass
+            self.durum_ayarla("kopuk")
+            time.sleep(2)
+
+    def kod(self, ham):
+        ham = ham.strip(b"\x02 \t")  # STX ve boşluklar
+        if not ham:
+            return
+        try:
+            metin = ham.decode("utf-8")
+        except UnicodeDecodeError:
+            metin = ham.decode("latin-1")
+        self.yay("kod", metin)
+
+
+_okuyucular = {}  # (host, port) -> Okuyucu
+_okuyucu_kilit = threading.Lock()
+
+
+def okuyucu_al(host, port):
+    with _okuyucu_kilit:
+        o = _okuyucular.get((host, port))
+        if not o:
+            o = _okuyucular[(host, port)] = Okuyucu(host, port)
+        return o
 
 
 # ---------------- oturumlar ----------------
@@ -195,7 +283,7 @@ class Handler(SimpleHTTPRequestHandler):
     server_version = "DunyatekKamera/1.0"
 
     def log_message(self, fmt, *args):
-        if not self.path.startswith(("/kamera", "/api/ben")):
+        if not self.path.startswith(("/kamera", "/okuyucu", "/api/ben")):
             super().log_message(fmt, *args)
 
     def end_headers(self):
@@ -271,7 +359,7 @@ class Handler(SimpleHTTPRequestHandler):
             self.path = yol
             return super().do_GET()
         if not self.girisli():
-            if yol.startswith(("/api/", "/kamera")):
+            if yol.startswith(("/api/", "/kamera", "/okuyucu")):
                 return self.hata(401, "Giriş gerekli")
             return self.yonlendir("/giris.html")
         if yol in KORUNAN_DOSYALAR:
@@ -279,6 +367,8 @@ class Handler(SimpleHTTPRequestHandler):
             return super().do_GET()
         if yol == "/kamera":
             return self.kamera(urllib.parse.parse_qs(u.query))
+        if yol == "/okuyucu":
+            return self.okuyucu(urllib.parse.parse_qs(u.query).get("id", [""])[0])
         if yol == "/api/ben":
             with _kilit:
                 a = ayar_oku()
@@ -377,7 +467,18 @@ class Handler(SimpleHTTPRequestHandler):
             return self.hata(400, "Kamera adı 1-60 karakter olmalı")
         if not adres or len(adres) > 300 or any(c.isspace() for c in adres):
             return self.hata(400, "Kamera adresi geçersiz")
-        if "://" in adres and not adres.lower().startswith(("http://", "https://", "rtsp://")):
+        tur = "okuyucu" if v.get("tur") == "okuyucu" else "kamera"
+        port = None
+        if tur == "okuyucu":
+            if "://" in adres or "/" in adres:
+                return self.hata(400, "Okuyucu için sadece IP adresi yazın (ör. 192.168.1.50)")
+            try:
+                port = int(v.get("port"))
+            except (TypeError, ValueError):
+                port = 0
+            if not 1 <= port <= 65535:
+                return self.hata(400, "Port 1-65535 arasında olmalı")
+        elif "://" in adres and not adres.lower().startswith(("http://", "https://", "rtsp://")):
             return self.hata(400, "Adres http://, https:// veya rtsp:// ile başlamalı")
         with _kilit:
             a = ayar_oku()
@@ -389,8 +490,9 @@ class Handler(SimpleHTTPRequestHandler):
                 k = next((x for x in a["kameralar"] if x["id"] == kid), None)
                 if not k:
                     return self.hata(404, "Kamera bulunamadı")
-            k["ad"], k["adres"] = ad, adres
-            k["kullanici"] = str(v.get("kullanici", "")).strip()
+            k["ad"], k["adres"], k["tur"], k["port"] = ad, adres, tur, port
+            k["okunamadi"] = str(v.get("okunamadi", "")).strip()[:40] if tur == "okuyucu" else ""
+            k["kullanici"] = str(v.get("kullanici", "")).strip() if tur == "kamera" else ""
             if v.get("sifre") or not k["kullanici"]:
                 k["sifre"] = str(v.get("sifre", "")) if k["kullanici"] else ""
             ayar_yaz(a)
@@ -407,13 +509,46 @@ class Handler(SimpleHTTPRequestHandler):
             ayar_yaz(a)
         return self.json_yanit(200, {"ok": True})
 
+    # --- barkod okuyucu akışı (Server-Sent Events) ---
+    def okuyucu(self, kid):
+        with _kilit:
+            k = next((x for x in ayar_oku()["kameralar"]
+                      if x["id"] == kid and x.get("tur") == "okuyucu"), None)
+        if not k:
+            return self.hata(404, "Okuyucu bulunamadı")
+        o = okuyucu_al(k["adres"], int(k["port"]))
+        q = queue.Queue(maxsize=1000)
+        self.send_response(200)
+        self.send_header("Content-Type", "text/event-stream; charset=utf-8")
+        self.end_headers()
+        with o.kilit:
+            o.aboneler.add(q)
+        try:
+            self.olay_yaz("durum", o.durum)
+            while True:
+                try:
+                    olay, veri = q.get(timeout=15)
+                    self.olay_yaz(olay, veri)
+                except queue.Empty:
+                    self.wfile.write(b": canli\n\n")  # bağlantıyı açık tut
+                    self.wfile.flush()
+        except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
+            pass
+        finally:
+            with o.kilit:
+                o.aboneler.discard(q)
+
+    def olay_yaz(self, olay, veri):
+        self.wfile.write(f"event: {olay}\ndata: {json.dumps(veri, ensure_ascii=False)}\n\n".encode("utf-8"))
+        self.wfile.flush()
+
     # --- kamera akışı ---
     def kamera(self, qs):
         kid = qs.get("id", [""])[0]
         if kid:
             with _kilit:
                 k = next((x for x in ayar_oku()["kameralar"] if x["id"] == kid), None)
-            if not k:
+            if not k or k.get("tur") == "okuyucu":
                 return self.send_error(404, "Kamera bulunamadi")
             url = resolve(k["adres"], k.get("kullanici", ""), k.get("sifre", ""))
         else:

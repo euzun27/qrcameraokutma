@@ -67,6 +67,12 @@ button.tehlike{border-color:var(--bad);color:var(--bad)}
 #onizleme{display:none;margin-top:12px;background:#000;border-radius:8px;aspect-ratio:16/9;width:100%;object-fit:contain}
 .uyari{background:#f0a20222;border:1px solid var(--warn);color:var(--warn);border-radius:8px;padding:8px 12px;margin-bottom:12px;font-size:14px}
 @media(max-width:600px){.grid2{grid-template-columns:1fr}}
+#kamForm.okuyucu .t-kamera,#kamForm:not(.okuyucu) .t-okuyucu,.row.okuyucu .t-kamera{display:none}
+#okuyucuPanel{display:none;position:absolute;inset:0;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center;padding:16px}
+#okuyucuPanel.goster{display:flex}
+#okuyucuDurum{font-size:20px;color:var(--muted)}
+#okuyucuDurum.bagli{color:var(--ok)}#okuyucuDurum.kopuk{color:var(--bad)}
+#okuyucuSon{font-size:clamp(24px,4vw,44px);font-weight:800;word-break:break-all}
 @media print{
   body{background:#fff}
   body>*:not(#printLabel){display:none!important}
@@ -95,18 +101,22 @@ button.tehlike{border-color:var(--bad);color:var(--bad)}
     <table class="kamtablo"><thead><tr><th>Kamera adı</th><th>IP / adres</th><th></th></tr></thead><tbody id="kamListe"></tbody></table>
     <h3 id="kamFormBaslik" style="margin:18px 0 0;font-size:15px">Kamera ekle</h3>
     <form id="kamForm" class="grid2" autocomplete="off">
-      <label for="kAd">Kamera adı</label><input id="kAd" placeholder="ör. Hat 1 giriş" maxlength="60" required>
+      <label for="kTur">Tür</label><select id="kTur"><option value="kamera">IP kamera (görüntüden okur)</option><option value="okuyucu">Barkod okuyucu (TCP, kodu cihaz okur)</option></select>
+      <label for="kAd">Ad</label><input id="kAd" placeholder="ör. Hat 1 giriş" maxlength="60" required>
       <label for="kAdres">IP adresi</label><input id="kAdres" placeholder="ör. 192.168.1.152 veya http://… / rtsp://…" maxlength="300" required>
-      <label for="kKul">Kamera kullanıcı adı</label><input id="kKul" placeholder="isteğe bağlı" autocomplete="off">
-      <label for="kSifre">Kamera şifresi</label><input id="kSifre" type="password" placeholder="isteğe bağlı" autocomplete="new-password">
+      <label for="kPort" class="t-okuyucu">TCP port</label><input id="kPort" class="t-okuyucu" type="number" min="1" max="65535" placeholder="okuyucunun kod gönderdiği port">
+      <label for="kNoRead" class="t-okuyucu">Okunamadı metni</label><input id="kNoRead" class="t-okuyucu" maxlength="40" placeholder="ör. NoRead (okuyucu okuyamayınca gönderdiği metin, isteğe bağlı)">
+      <label for="kKul" class="t-kamera">Kamera kullanıcı adı</label><input id="kKul" class="t-kamera" placeholder="isteğe bağlı" autocomplete="off">
+      <label for="kSifre" class="t-kamera">Kamera şifresi</label><input id="kSifre" class="t-kamera" type="password" placeholder="isteğe bağlı" autocomplete="new-password">
     </form>
-    <div class="row">
+    <div class="row" id="kButonlar">
       <button id="kKaydet" class="primary">Kaydet</button>
-      <button id="kTest">Görüntüyü test et</button>
+      <button id="kTest" class="t-kamera">Görüntüyü test et</button>
       <button id="kVazgec" style="display:none">Vazgeç</button>
     </div>
     <div class="mesaj" id="kMesaj"></div>
     <p class="hint">En kolayı sadece IP yazmak (ör. <code>192.168.1.152</code>): yaygın görüntü adresleri sırayla denenir. Tam görüntü linki de yazılabilir (ör. <code>http://192.168.1.152/cgi-bin/mjpg/video.cgi</code>); kameranın web sayfası adresi görüntü vermez. Kamera kullanıcı adı ve şifresini linke değil alttaki kutulara yazın.<br>
+    <b>Barkod okuyucu:</b> okuyucuyu "TCP sunucu" modunda kodu metin olarak gönderecek şekilde ayarlayın; uygulama IP ve porta bağlanıp gelen her satırı bir kod sayar.<br>
     Hızlı canlı görüntü için RTSP önerilir (ffmpeg gerekir): Hikvision <code>rtsp://IP:554/Streaming/Channels/101</code>, Dahua <code>rtsp://IP:554/cam/realmonitor?channel=1&amp;subtype=0</code>. RTSP için bilgisayarda ffmpeg kurulu olmalıdır. Düzenlerken şifre boş bırakılırsa eski şifre korunur.</p>
     <img id="onizleme" alt="Kamera önizleme">
   </div>
@@ -128,6 +138,7 @@ button.tehlike{border-color:var(--bad);color:var(--bad)}
       <div class="video-wrap">
         <video id="video" playsinline muted></video>
         <img id="ipimg" alt="" style="display:none;width:100%;height:100%;object-fit:contain">
+        <div id="okuyucuPanel"><div id="okuyucuDurum">Okuyucu</div><div id="okuyucuSon"></div></div>
         <div id="flash"></div>
         <div id="fps"></div>
       </div>
@@ -293,6 +304,18 @@ async function onCode(code, src) {
   flash(entry.valid);
   persist(); record(entry);
 }
+// Okuyucu poşeti gördü ama kodu çözemedi: kayda YANLIŞ olarak düşer, sıra değişmez
+function okunamadi(src) {
+  lastNewAt = performance.now(); sessionRead = true; lastCode = null;
+  if (stopped) resume();
+  const entry = {code: '(okunamadı)', valid: false, time: new Date().toISOString(), src, okunamadi: true};
+  lastEntry = entry;
+  log.unshift(entry); if (log.length > 5000) log.length = 5000;
+  render(entry, false);
+  const f = $('flash'); f.className = 'bad'; f.textContent = 'OKUNAMADI'; beep(300, 500);
+  clearTimeout(flashT); flashT = setTimeout(() => { f.className = ''; }, 1200);
+  persist(); record(entry);
+}
 function statusText(v) { return v === true ? 'DOĞRU' : v === false ? 'YANLIŞ' : v === null ? 'SİSTEME ULAŞILAMADI' : '...'; }
 function render(entry, pending) {
   if (entry === lastEntry) {
@@ -375,7 +398,9 @@ async function listCams() {
   let devs = [];
   try { devs = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === 'videoinput' && d.deviceId); } catch {}
   const cur = $('camSel').value || cfg.cam;
-  let opts = ipCams.map(k => `<option value="ipcam:${esc(k.id)}">${esc(k.ad)} (${esc(k.adres)})</option>`).join('');
+  let opts = ipCams.map(k => k.tur === 'okuyucu'
+    ? `<option value="okuyucu:${esc(k.id)}">${esc(k.ad)} (okuyucu ${esc(k.adres)}:${k.port})</option>`
+    : `<option value="ipcam:${esc(k.id)}">${esc(k.ad)} (${esc(k.adres)})</option>`).join('');
   if (qsCam && !ipCams.some(k => k.ad === qsCam || k.adres === qsCam)) opts += `<option value="ipurl">${esc(qsCam)}</option>`;
   opts += devs.map((d, i) => `<option value="${esc(d.deviceId)}">${esc(d.label || 'USB kamera ' + (i + 1))}</option>`).join('');
   if (!devs.length) opts += '<option value="">Bilgisayar kamerası</option>';
@@ -394,6 +419,31 @@ async function startDetector() {
     if (sup.includes('qr_code')) detector = new BarcodeDetector({formats: cfg.formats === 'qr' ? ['qr_code'] : sup});
   } catch {}
 }
+// Barkod okuyucu: kodu cihaz çözer, sunucu /okuyucu üzerinden olay olarak iletir
+let okuyucuAkis = null;
+function okuyucuKapat() { if (okuyucuAkis) { okuyucuAkis.close(); okuyucuAkis = null; } $('okuyucuPanel').classList.remove('goster'); }
+function startOkuyucu(kid) {
+  const k = ipCams.find(x => x.id === kid); if (!k) return;
+  video.style.display = 'none'; ipimg.style.display = 'none'; src = null;
+  $('okuyucuPanel').classList.add('goster'); $('okuyucuSon').textContent = '';
+  const durum = d => {
+    const el = $('okuyucuDurum');
+    el.className = d === 'bagli' ? 'bagli' : d === 'kopuk' ? 'kopuk' : '';
+    el.textContent = (d === 'bagli' ? 'Okuyucuya bağlı' : d === 'kopuk' ? 'Okuyucuya bağlanılamadı, tekrar deneniyor…' : 'Okuyucuya bağlanılıyor…') + ` · ${k.adres}:${k.port}`;
+  };
+  durum('baglaniyor');
+  okuyucuAkis = new EventSource('/okuyucu?id=' + encodeURIComponent(kid));
+  okuyucuAkis.addEventListener('durum', ev => durum(JSON.parse(ev.data)));
+  okuyucuAkis.addEventListener('kod', ev => {
+    const kod = JSON.parse(ev.data);
+    $('okuyucuSon').textContent = kod;
+    if (k.okunamadi && kod.toLowerCase() === k.okunamadi.toLowerCase()) okunamadi('okuyucu');
+    else onCode(kod, 'okuyucu');
+  });
+  okuyucuAkis.onerror = () => durum('kopuk');  // EventSource kendisi yeniden bağlanır
+  running = true; setState('run'); $('startBtn').textContent = 'Yeniden bağlan';
+  $('fps').textContent = 'Barkod okuyucu';
+}
 function startIp(path) {
   video.style.display = 'none'; ipimg.style.display = '';
   src = ipimg;
@@ -405,7 +455,9 @@ function startIp(path) {
 async function start() {
   if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
   ipimg.onerror = null; ipimg.removeAttribute('src');
+  okuyucuKapat();
   const id = $('camSel').value;
+  if (id.startsWith('okuyucu:')) { cfg.cam = id; saveCfg(); return startOkuyucu(id.slice(8)); }
   if (id.startsWith('ipcam:')) { cfg.cam = id; saveCfg(); return startIp('/kamera?id=' + encodeURIComponent(id.slice(6))); }
   if (id === 'ipurl') return startIp('/kamera?url=' + encodeURIComponent(qsCam));
   video.style.display = ''; ipimg.style.display = 'none'; src = video;
@@ -452,12 +504,21 @@ $('cikisBtn').onclick = async () => { await api('/api/cikis', {}).catch(() => {}
 let duzenlenen = null;
 function kamListeCiz() {
   $('kamListe').innerHTML = ipCams.length ? ipCams.map(k =>
-    `<tr><td>${esc(k.ad)}</td><td>${esc(k.adres)}${k.kullanici ? ' <span class="hint">(' + esc(k.kullanici) + ')</span>' : ''}</td>
+    `<tr><td>${esc(k.ad)}</td><td>${k.tur === 'okuyucu' ? esc(k.adres) + ':' + k.port + ' <span class="hint">(okuyucu)</span>'
+      : esc(k.adres) + (k.kullanici ? ' <span class="hint">(' + esc(k.kullanici) + ')</span>' : '')}</td>
      <td><button data-duzenle="${esc(k.id)}">Düzenle</button> <button class="tehlike" data-sil="${esc(k.id)}">Sil</button></td></tr>`).join('')
     : '<tr><td colspan="3" class="hint">Henüz kamera eklenmedi.</td></tr>';
 }
+function turGoster() {
+  const ok = $('kTur').value === 'okuyucu';
+  $('kamForm').classList.toggle('okuyucu', ok); $('kButonlar').classList.toggle('okuyucu', ok);
+  $('kPort').required = ok;
+  $('kAdres').placeholder = ok ? 'ör. 192.168.1.50' : 'ör. 192.168.1.152 veya http://… / rtsp://…';
+  if (ok) onizlemeKapat();
+}
+$('kTur').onchange = turGoster;
 function kamFormTemizle() {
-  duzenlenen = null; $('kamForm').reset(); $('kamFormBaslik').textContent = 'Kamera ekle';
+  duzenlenen = null; $('kamForm').reset(); turGoster(); $('kamFormBaslik').textContent = 'Kamera / okuyucu ekle';
   $('kSifre').placeholder = 'isteğe bağlı'; $('kVazgec').style.display = 'none'; mesaj('kMesaj', ''); onizlemeKapat();
   kamListeCiz();
 }
@@ -466,7 +527,9 @@ $('kamListe').onclick = async ev => {
   if (d.duzenle) {
     const k = ipCams.find(x => x.id === d.duzenle); if (!k) return;
     duzenlenen = k.id; $('kamFormBaslik').textContent = 'Kamerayı düzenle: ' + k.ad;
+    $('kTur').value = k.tur || 'kamera'; turGoster();
     $('kAd').value = k.ad; $('kAdres').value = k.adres; $('kKul').value = k.kullanici; $('kSifre').value = '';
+    $('kPort').value = k.port || ''; $('kNoRead').value = k.okunamadi || '';
     $('kSifre').placeholder = k.sifre_var ? 'boş = eski şifre korunur' : 'isteğe bağlı';
     $('kVazgec').style.display = ''; mesaj('kMesaj', ''); $('kAd').focus();
   } else if (d.sil) {
@@ -479,7 +542,8 @@ $('kamListe').onclick = async ev => {
 $('kVazgec').onclick = kamFormTemizle;
 $('kKaydet').onclick = async () => {
   if (!$('kamForm').reportValidity()) return;
-  const body = {ad: $('kAd').value.trim(), adres: $('kAdres').value.trim(), kullanici: $('kKul').value.trim(), sifre: $('kSifre').value};
+  const body = {tur: $('kTur').value, ad: $('kAd').value.trim(), adres: $('kAdres').value.trim(), kullanici: $('kKul').value.trim(), sifre: $('kSifre').value,
+    port: $('kPort').value, okunamadi: $('kNoRead').value.trim()};
   const r = await api('/api/kameralar' + (duzenlenen ? '/' + encodeURIComponent(duzenlenen) : ''), body);
   if (!r.ok) return mesaj('kMesaj', await hataMetni(r), 'hata');
   const k = await r.json();

@@ -29,6 +29,13 @@ Varsayılan olarak ağdaki diğer bilgisayarlar da `http://<bu-bilgisayarın-IP'
       Hızlı bant için önerilir (~25 kare/sn); sadece anlık görüntü veren kameralar (ör. Hikvision
       `/ISAPI/.../picture`) saniyede ~1 kare verir.
       Hikvision: `rtsp://IP:554/Streaming/Channels/101` · Dahua: `rtsp://IP:554/cam/realmonitor?channel=1&subtype=0`
+  - **Barkod okuyucu (TCP):** Tür olarak "Barkod okuyucu" seçilip IP ve port girilir. Hikrobot, Cognex,
+    Datalogic gibi endüstriyel okuyucular kodu kendileri çözüp TCP ile metin olarak gönderir; uygulama
+    okuyucuya bağlanır, gelen her satırı (CR/LF/ETX ile ayrılmış) bir kod sayar, bağlantı koparsa
+    2 saniyede bir yeniden dener. Okuyucunun okuyamadığında gönderdiği metin (ör. `NoRead`)
+    "Okunamadı metni" kutusuna yazılırsa ekranda **OKUNAMADI** uyarısı çıkar ve kayda YANLIŞ olarak düşer.
+    Okuyucuyu "TCP sunucu" modunda ayarlayın. IP kameralar ve okuyucular aynı listede birlikte kullanılabilir.
+    Cihaz yokken test için: `python araclar/sahte_okuyucu.py` (127.0.0.1:2001, okunamadı metni `NoRead`).
   - **Kullanıcı / Şifre:** mevcut şifreyle kullanıcı adı ve şifre değiştirilir. Şifre değişince diğer oturumlar kapanır.
 - Ayarlar `veri/ayarlar.json` dosyasında tutulur (şifre PBKDF2 ile özetlenmiş halde). Şifre unutulursa
   bu dosya silinip uygulama yeniden başlatılınca giriş tekrar admin/admin olur, ama kayıtlı kameralar da silinir.
