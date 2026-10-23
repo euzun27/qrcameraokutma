@@ -1,20 +1,107 @@
-# Bant QR Okuyucu
+# Dunyatek Kamera Okutma
 
 Hızlı akan banttaki poşetlerin QR kodlarını kameradan sürekli okuyan, her kodu doğrulayan
 (geçersizse ekranda büyük **YANLIŞ** uyarısı ve ses) ve bant durduğunda son okunan barkodu
-gösterip etiketini yazdıran tarayıcı uygulaması.
+gösterip etiketini yazdıran tarayıcı uygulaması. Kullanıcı girişi ve kamera kurulum ekranı vardır.
 
-## Çalıştırma
+## Kurulum dosyası (müşteriye verilecek)
 
-1. Depoyu indirin, `index.html` dosyasını Chrome veya Edge ile açın (internet gerekmez, kütüphaneler `vendor/` içinde).
-2. **Kamerayı başlat**'a basın, kamera seçin.
-3. **Ayarlar** bölümünden doğrulama yöntemini seçin:
+`paketle.bat` çalıştırılınca `paketleme\cikti\DunyatekBarkod_Kurulum_<sürüm>.exe` üretilir (~90 MB).
+Bu tek dosya hedef bilgisayara Python gerekmeden kurulur:
+
+- Uygulama `Program Files\Dunyatek\HizliBarkod\DunyatekBarkod.exe` olarak kurulur; sayfalar ve kod exe'nin
+  içindedir, klasörde kaynak dosya bulunmaz. ffmpeg (RTSP için) `ffmpeg\` alt klasörüne kurulur.
+- Masaüstü / Başlat menüsü kısayolu, isteğe bağlı Windows açılışında otomatik başlatma ve güvenlik
+  duvarında 8080 portunu açma seçenekleri vardır. Programlar ve Özellikler'den kaldırılabilir.
+- Uygulama pencere açmadan çalışır; saatin yanındaki simgeden **Uygulamayı aç** / **Çıkış** yapılır.
+- Ayarlar ve günlük `C:\ProgramData\Dunyatek\HizliBarkod\` altında tutulur, güncelleme ve kaldırmada silinmez.
+
+Paketlemek için (sadece paketleyen bilgisayarda): `python -m pip install pyinstaller pystray pillow`,
+`winget install JRSoftware.InnoSetup`, `winget install Gyan.FFmpeg`. Sürüm numarası
+`paketleme\kurulum.iss` (SURUM) ve `paketleme\surum.txt` içinde değiştirilir.
+
+Not: Python kodu exe içinde derlenmiş haldedir; uzman araçlarla geri açılması zorlaştırılmış ama imkânsız
+değildir (daha güçlü koruma için PyArmor). Tarayıcıda çalışan sayfa kodu tarayıcı araçlarıyla görülebilir.
+ffmpeg GPLv3 lisanslıdır; lisans metni kurulumla birlikte `ffmpeg\LICENSE` olarak dağıtılır.
+
+## Yeni bilgisayara kurulum (geliştirme / Python ile)
+
+1. Bilgisayarda Python 3 yoksa [python.org](https://www.python.org/downloads/windows/) adresinden kurun
+   (kurulumda **Add python.exe to PATH** kutusunu işaretleyin). Ek paket gerekmez.
+2. Bu klasörü bilgisayara kopyalayın (ör. `C:\DunyatekKamera`).
+3. `kur.bat` dosyasına çift tıklayın. Masaüstüne **Dunyatek Kamera Okutma** kısayolu eklenir;
+   isterseniz Windows açılınca otomatik başlatma da eklenir.
+4. Kısayola tıklayınca sunucu küçültülmüş pencerede başlar ve tarayıcıda uygulama açılır.
+   Pencere kapatılırsa uygulama durur.
+
+Elle başlatmak için: `python sunucu.py --ac` (`--port 8080`, `--host 127.0.0.1` = sadece bu bilgisayar).
+Varsayılan olarak ağdaki diğer bilgisayarlar da `http://<bu-bilgisayarın-IP'si>:8080/` ile girebilir.
+
+## Giriş ve kurulum
+
+- İlk giriş: kullanıcı adı **admin**, şifre **admin**. İlk girişte şifreyi değiştirmeniz istenir.
+- Üstteki **Kurulum** düğmesi:
+  - **Kameralar:** kamera adı ve IP adresi ile kamera ekleyin, düzenleyin, silin; isteğe bağlı kamera
+    kullanıcı adı/şifresi girilebilir. **Görüntüyü test et** ile kaydetmeden önce görüntü denenir.
+    - Sadece IP verilirse sunucu yaygın MJPEG / anlık görüntü adreslerini sırayla dener.
+    - Tam adres de verilebilir: `http://192.168.1.152/cgi-bin/mjpg/video.cgi`
+    - RTSP (`rtsp://...`) için bilgisayarda `ffmpeg` kurulu olmalıdır (`winget install Gyan.FFmpeg`).
+      Hızlı bant için önerilir (~25 kare/sn); sadece anlık görüntü veren kameralar (ör. Hikvision
+      `/ISAPI/.../picture`) saniyede ~1 kare verir.
+      Hikvision: `rtsp://IP:554/Streaming/Channels/101` · Dahua: `rtsp://IP:554/cam/realmonitor?channel=1&subtype=0`
+  - **Barkod okuyucu (TCP):** Tür olarak "Barkod okuyucu" seçilip IP ve port girilir. Hikrobot, Cognex,
+    Datalogic gibi endüstriyel okuyucular kodu kendileri çözüp TCP ile metin olarak gönderir; uygulama
+    okuyucuya bağlanır, gelen her satırı (CR/LF/ETX ile ayrılmış) bir kod sayar, bağlantı koparsa
+    2 saniyede bir yeniden dener. Okuyucunun okuyamadığında gönderdiği metin (ör. `NoRead`)
+    "Okunamadı metni" kutusuna yazılırsa ekranda **OKUNAMADI** uyarısı çıkar ve kayda YANLIŞ olarak düşer.
+    Okuyucuyu "TCP sunucu" modunda ayarlayın. IP kameralar ve okuyucular aynı listede birlikte kullanılabilir.
+    Cihaz yokken test için: `python araclar/sahte_okuyucu.py` (127.0.0.1:2001, okunamadı metni `NoRead`).
+  - **Kullanıcı / Şifre:** mevcut şifreyle kullanıcı adı ve şifre değiştirilir. Şifre değişince diğer oturumlar kapanır.
+- Ayarlar `veri/ayarlar.json` dosyasında tutulur (şifre PBKDF2 ile özetlenmiş halde). Şifre unutulursa
+  bu dosya silinip uygulama yeniden başlatılınca giriş tekrar admin/admin olur, ama kayıtlı kameralar da silinir.
+
+## Kullanım
+
+1. Üstteki listeden kamerayı seçip **Kamerayı başlat**'a basın.
+   Kamera adresle de açılabilir: `http://localhost:8080/?kamera=Hat 1` (kamera adı ya da IP).
+4. **Ayarlar** bölümünden doğrulama yöntemini seçin (varsayılan: sıra kontrolü):
+   - **Sıra kontrolü:** koddaki son sayı bir önceki doğru koddan bir fazla olmalı
+     (ör. `PSK-000123` → `PSK-000124`). Sıra dışı gelen kod **YANLIŞ** olur ve sıra son doğru koddan devam eder.
+     İlk okunan kod sırayı başlatır ya da başlangıç kodu ayarlardan girilir. Bir poşet gerçekten eksikse
+     "Sırayı son koddan devam ettir" ile yeni koddan devam edilir.
    - **Kural (desen):** kod bir regex desenine uymalı (ör. `^PSK-\d{4}$`).
    - **Geçerli kod listesi:** her satıra bir kod.
    - **Sistem API:** her kod için `GET` isteği atılır (`{code}` yer tutucusu kullanılabilir).
      HTTP 200 ve JSON'da `valid` / `gecerli` / `ok` alanı `true` ise DOĞRU sayılır.
 4. İsteğe bağlı **Kayıt (POST) adresi** verilirse her okuma `{code, valid, time}` olarak sisteme gönderilir.
    Kayıtlar ayrıca tarayıcıda saklanır ve CSV olarak indirilebilir.
+
+## YANLIŞ alarmı ve kural dışı okumalar
+
+Sıra dışı, mükerrer (daha önce DOĞRU okunmuş), okunamayan ya da kurala uymayan her okumada tüm ekranı
+kaplayan kırmızı **YANLIŞ** uyarısı çıkar ve iki tonlu yüksek siren çalar. Ayarlar → Alarm: "Siren (3 sn)",
+"Susturulana kadar çal" (ekrandaki **ALARMI SUSTUR** düğmesi ya da Boşluk/Enter) veya "Kısa bip".
+Tabloda nedeni yazar (ör. "Sıra dışı · beklenen: …-287", "Mükerrer: bu kod daha önce okundu").
+Görüntüde kalan ya da aynı anda görünen iki poşetin kodu tekrar sayılmaz; kod görüntüden çıkıp sonra
+yeniden gelirse mükerrer sayılır. Bilgisayarın ses düzeyi açık olmalıdır (gerekirse harici hoparlör).
+
+Ters baskı (filmin iç yüzüne basılmış, aynalı görünen) QR kodlar okunur: "Aynalı kodlar: Otomatik".
+
+## Kalıcı kayıtlar
+
+Her okuma sunucudaki veritabanına (`kayitlar.db`, ayarlarla aynı klasörde) zaman, kod, tip, durum,
+açıklama, kamera/okuyucu ve kullanıcı ile yazılır. Üstteki **Kayıtlar** düğmesinden tarih, durum ve koda
+göre süzülür; **Excel'e aktar** ile CSV (Excel'de doğrudan açılır) indirilir. "Ekranı temizle" sadece
+ekrandaki listeyi sıfırlar, kalıcı kayıtları silmez.
+
+## Zebra etiket yazıcı (ZT410 / ZT411)
+
+Kurulum → **Etiket yazıcı**: ağ (IP, port 9100) ya da Windows'a kurulu yazıcı (USB) seçilir, DPI ve
+etiket ölçüsü girilir. Son okunan kodun etiketi **Etiket bas** ile istenen adette (ör. 50) basılır; adet
+yazıcıya tek komutla (`^PQ`) gider. "Bant durunca otomatik yazdır" açıksa varsayılan adet otomatik basılır.
+Hazır şablon: QR + kod + durum + tarih. ZebraDesigner'da hazırlanan ZPL, `{KOD}` `{DURUM}` `{TARIH}`
+`{SAAT}` `{ADET}` yer tutucularıyla "Özel ZPL şablonu" alanına yapıştırılabilir. Basılan etiketler
+`baskilar` tablosuna kaydedilir. Yazıcı yokken test: `python araclar/sahte_yazici.py` (127.0.0.1:9100).
 
 ## Bant durdu algılama
 
@@ -24,7 +111,10 @@ istenirse otomatik yazdırılır. Yeni bir kod okununca okuma moduna dönülür.
 
 ## Notlar
 
-- Chrome/Edge'in yerleşik `BarcodeDetector`'ı varsa o kullanılır, yoksa jsQR (saniyede ~60 tarama).
+- Her tür barkod okunur: QR, EAN-13/8, UPC, Code128/39/93, ITF, Codabar, DataMatrix, PDF417, Aztec
+  (ZXing, `vendor/zxing.min.js`, Apache-2.0). Ayarlardan "Sadece QR" seçilirse daha hızlı tarar.
+  Tarayıcının yerleşik `BarcodeDetector`'ı varsa (Windows Chrome'da yok) o kullanılır.
+- Kamera görüntüyü ayna gibi ters veriyorsa Ayarlar → "Görüntüyü aynala" açılır (en iyisi kamerada ayna ayarını kapatmak).
 - Hızlı bantta bulanıklığı azaltmak için kamerada kısa pozlama süresi ve iyi aydınlatma önemlidir.
 - Sistem API'si farklı bir adresteyse sunucunun CORS izni vermesi gerekir.
 - USB barkod okuyucu klavye gibi çalıştığı için "Elle kod" kutusuna da okutulabilir.
