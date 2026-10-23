@@ -4,7 +4,27 @@ Hızlı akan banttaki poşetlerin QR kodlarını kameradan sürekli okuyan, her 
 (geçersizse ekranda büyük **YANLIŞ** uyarısı ve ses) ve bant durduğunda son okunan barkodu
 gösterip etiketini yazdıran tarayıcı uygulaması. Kullanıcı girişi ve kamera kurulum ekranı vardır.
 
-## Yeni bilgisayara kurulum
+## Kurulum dosyası (müşteriye verilecek)
+
+`paketle.bat` çalıştırılınca `paketleme\cikti\DunyatekBarkod_Kurulum_<sürüm>.exe` üretilir (~90 MB).
+Bu tek dosya hedef bilgisayara Python gerekmeden kurulur:
+
+- Uygulama `Program Files\Dunyatek\HizliBarkod\DunyatekBarkod.exe` olarak kurulur; sayfalar ve kod exe'nin
+  içindedir, klasörde kaynak dosya bulunmaz. ffmpeg (RTSP için) `ffmpeg\` alt klasörüne kurulur.
+- Masaüstü / Başlat menüsü kısayolu, isteğe bağlı Windows açılışında otomatik başlatma ve güvenlik
+  duvarında 8080 portunu açma seçenekleri vardır. Programlar ve Özellikler'den kaldırılabilir.
+- Uygulama pencere açmadan çalışır; saatin yanındaki simgeden **Uygulamayı aç** / **Çıkış** yapılır.
+- Ayarlar ve günlük `C:\ProgramData\Dunyatek\HizliBarkod\` altında tutulur, güncelleme ve kaldırmada silinmez.
+
+Paketlemek için (sadece paketleyen bilgisayarda): `python -m pip install pyinstaller pystray pillow`,
+`winget install JRSoftware.InnoSetup`, `winget install Gyan.FFmpeg`. Sürüm numarası
+`paketleme\kurulum.iss` (SURUM) ve `paketleme\surum.txt` içinde değiştirilir.
+
+Not: Python kodu exe içinde derlenmiş haldedir; uzman araçlarla geri açılması zorlaştırılmış ama imkânsız
+değildir (daha güçlü koruma için PyArmor). Tarayıcıda çalışan sayfa kodu tarayıcı araçlarıyla görülebilir.
+ffmpeg GPLv3 lisanslıdır; lisans metni kurulumla birlikte `ffmpeg\LICENSE` olarak dağıtılır.
+
+## Yeni bilgisayara kurulum (geliştirme / Python ile)
 
 1. Bilgisayarda Python 3 yoksa [python.org](https://www.python.org/downloads/windows/) adresinden kurun
    (kurulumda **Add python.exe to PATH** kutusunu işaretleyin). Ek paket gerekmez.

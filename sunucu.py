@@ -37,8 +37,14 @@ from http.cookies import SimpleCookie
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 
 UYGULAMA = "Dünyatek Hızlı Barkod Okuma Sistemi"
-KOK = os.path.dirname(os.path.abspath(__file__))
-VERI_DIZINI = os.path.join(KOK, "veri")
+PAKETLI = getattr(sys, "frozen", False)  # PyInstaller ile tek exe olarak mı çalışıyor
+# KOK: sayfa/kütüphane dosyaları (paketliyken exe'nin içinden açılan geçici klasör)
+KOK = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
+# KURULUM: exe'nin bulunduğu klasör (ffmpeg buraya konur)
+KURULUM = os.path.dirname(sys.executable) if PAKETLI else KOK
+# Ayarlar: kurulu sürümde ProgramData altında (Program Files yazılabilir değil, güncellemede korunur)
+VERI_DIZINI = (os.path.join(os.environ.get("PROGRAMDATA", r"C:\ProgramData"), "Dunyatek", "HizliBarkod")
+               if PAKETLI else os.path.join(KOK, "veri"))
 AYAR_DOSYASI = os.path.join(VERI_DIZINI, "ayarlar.json")
 OTURUM_SURESI = 12 * 3600  # saniye
 CEREZ = "dt_oturum"
@@ -242,6 +248,9 @@ def kimlik_ekle(url, kullanici, sifre):
 
 def ffmpeg_yolu():
     """ffmpeg'i bulur; winget ile yeni kurulduysa PATH yenilenmemiş olabilir."""
+    paketli = os.path.join(KURULUM, "ffmpeg", "ffmpeg.exe")  # kurulumla gelen
+    if os.path.isfile(paketli):
+        return paketli
     yol = shutil.which("ffmpeg")
     if yol:
         return yol
@@ -609,7 +618,9 @@ class Handler(SimpleHTTPRequestHandler):
         p = subprocess.Popen(
             [ff, "-loglevel", "error", "-rtsp_transport", "tcp", "-i", url,
              "-an", "-f", "mpjpeg", "-boundary_tag", BOUNDARY.decode(), "-q:v", "4", "-"],
-            stdout=subprocess.PIPE)
+            stdout=subprocess.PIPE, stdin=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            # Pencereli exe'den çalışırken siyah konsol penceresi açılmasın
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
         self.send_response(200)
         self.send_header("Content-Type", "multipart/x-mixed-replace; boundary=" + BOUNDARY.decode())
         self.end_headers()
@@ -623,28 +634,71 @@ class Handler(SimpleHTTPRequestHandler):
             p.kill()
 
 
+def yerel_ip():
+    """Ağdaki diğer bilgisayarların kullanacağı IP (bilinmiyorsa None)."""
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+            s.connect(("10.255.255.255", 1))  # paket gönderilmez, sadece çıkış arayüzü seçilir
+            return s.getsockname()[0]
+    except OSError:
+        return None
+
+
+def tepsi(srv, adres, port):
+    """Saatin yanında simge: uygulamayı aç / çıkış. Pencere açık kalmaz."""
+    import pystray
+    from PIL import Image
+
+    def ac(icon=None, item=None):
+        webbrowser.open(adres)
+
+    def cikis(icon, item):
+        threading.Thread(target=srv.shutdown, daemon=True).start()
+        icon.stop()
+
+    ip = yerel_ip()
+    menu = [pystray.MenuItem("Uygulamayı aç", ac, default=True)]
+    if ip:
+        menu.append(pystray.MenuItem(f"Ağdan erişim: http://{ip}:{port}/", None, enabled=False))
+    menu += [pystray.Menu.SEPARATOR, pystray.MenuItem("Çıkış", cikis)]
+    simge = pystray.Icon("DunyatekBarkod", Image.open(os.path.join(KOK, "gorsel", "ikon.png")),
+                         UYGULAMA, pystray.Menu(*menu))
+    simge.run()
+
+
 def main():
     ap = argparse.ArgumentParser(description=UYGULAMA + " yerel sunucusu")
     ap.add_argument("--port", type=int, default=8080)
     ap.add_argument("--host", default="0.0.0.0", help="127.0.0.1 = sadece bu bilgisayar")
     ap.add_argument("--ac", action="store_true", help="Tarayıcıda uygulamayı aç")
+    ap.add_argument("--tepsi", action="store_true", default=PAKETLI,
+                    help="Saatin yanında simgeyle, pencere açmadan çalış (kurulu sürümde varsayılan)")
     a = ap.parse_args()
+    if sys.stdout is None or PAKETLI:
+        # Pencereli exe'de konsol yok: çıktıları günlük dosyasına yaz
+        os.makedirs(VERI_DIZINI, exist_ok=True)
+        gunluk = open(os.path.join(VERI_DIZINI, "sunucu.log"), "a", encoding="utf-8", buffering=1)
+        sys.stdout = sys.stderr = gunluk
     os.chdir(KOK)
     adres = f"http://localhost:{a.port}/"
     try:
         srv = ThreadingHTTPServer((a.host, a.port), Handler)
     except OSError:
-        # Port dolu: büyük olasılıkla uygulama zaten çalışıyor
+        # Port dolu: büyük olasılıkla uygulama zaten çalışıyor, sadece tarayıcıyı aç
         print(f"{a.port} portu kullanımda; uygulama zaten çalışıyor olabilir: {adres}")
         if a.ac:
             webbrowser.open(adres)
-        sys.exit(1)
+        sys.exit(0 if a.tepsi else 1)
     srv.daemon_threads = True
     with _kilit:
         ayar_oku()  # ilk çalıştırmada varsayılan ayarları oluştur
-    print(f"{UYGULAMA}: {adres}   (durdurmak için Ctrl+C)")
+    print(f"{time.strftime('%Y-%m-%d %H:%M:%S')} {UYGULAMA}: {adres}   (durdurmak için Ctrl+C)")
     if a.ac:
         threading.Timer(0.5, webbrowser.open, args=(adres,)).start()
+    if a.tepsi:
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+        tepsi(srv, adres, a.port)
+        return
     try:
         srv.serve_forever()
     except KeyboardInterrupt:
