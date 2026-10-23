@@ -25,7 +25,10 @@ Varsayılan olarak ağdaki diğer bilgisayarlar da `http://<bu-bilgisayarın-IP'
     kullanıcı adı/şifresi girilebilir. **Görüntüyü test et** ile kaydetmeden önce görüntü denenir.
     - Sadece IP verilirse sunucu yaygın MJPEG / anlık görüntü adreslerini sırayla dener.
     - Tam adres de verilebilir: `http://192.168.1.152/cgi-bin/mjpg/video.cgi`
-    - RTSP (`rtsp://...`) için bilgisayarda `ffmpeg` kurulu olmalıdır.
+    - RTSP (`rtsp://...`) için bilgisayarda `ffmpeg` kurulu olmalıdır (`winget install Gyan.FFmpeg`).
+      Hızlı bant için önerilir (~25 kare/sn); sadece anlık görüntü veren kameralar (ör. Hikvision
+      `/ISAPI/.../picture`) saniyede ~1 kare verir.
+      Hikvision: `rtsp://IP:554/Streaming/Channels/101` · Dahua: `rtsp://IP:554/cam/realmonitor?channel=1&subtype=0`
   - **Kullanıcı / Şifre:** mevcut şifreyle kullanıcı adı ve şifre değiştirilir. Şifre değişince diğer oturumlar kapanır.
 - Ayarlar `veri/ayarlar.json` dosyasında tutulur (şifre PBKDF2 ile özetlenmiş halde). Şifre unutulursa
   bu dosya silinip uygulama yeniden başlatılınca giriş tekrar admin/admin olur, ama kayıtlı kameralar da silinir.
@@ -54,7 +57,10 @@ istenirse otomatik yazdırılır. Yeni bir kod okununca okuma moduna dönülür.
 
 ## Notlar
 
-- Chrome/Edge'in yerleşik `BarcodeDetector`'ı varsa o kullanılır, yoksa jsQR (saniyede ~60 tarama).
+- Her tür barkod okunur: QR, EAN-13/8, UPC, Code128/39/93, ITF, Codabar, DataMatrix, PDF417, Aztec
+  (ZXing, `vendor/zxing.min.js`, Apache-2.0). Ayarlardan "Sadece QR" seçilirse daha hızlı tarar.
+  Tarayıcının yerleşik `BarcodeDetector`'ı varsa (Windows Chrome'da yok) o kullanılır.
+- Kamera görüntüyü ayna gibi ters veriyorsa Ayarlar → "Görüntüyü aynala" açılır (en iyisi kamerada ayna ayarını kapatmak).
 - Hızlı bantta bulanıklığı azaltmak için kamerada kısa pozlama süresi ve iyi aydınlatma önemlidir.
 - Sistem API'si farklı bir adresteyse sunucunun CORS izni vermesi gerekir.
 - USB barkod okuyucu klavye gibi çalıştığı için "Elle kod" kutusuna da okutulabilir.

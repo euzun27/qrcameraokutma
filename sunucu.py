@@ -53,7 +53,7 @@ _found = {}  # (ip, kullanıcı) -> çalışan tam adres
 
 # Giriş yapmadan açılabilen dosyalar; giriş sonrası da yalnızca bu listedekiler sunulur
 ACIK_DOSYALAR = {"/giris.html"}
-KORUNAN_DOSYALAR = {"/index.html", "/vendor/jsQR.js", "/vendor/qrcode.js"}
+KORUNAN_DOSYALAR = {"/index.html", "/vendor/jsQR.js", "/vendor/qrcode.js", "/vendor/zxing.min.js"}
 
 
 # ---------------- ayarlar ----------------
@@ -152,6 +152,15 @@ def kimlik_ekle(url, kullanici, sifre):
     return p._replace(netloc=kimlik + "@" + p.netloc).geturl()
 
 
+def ffmpeg_yolu():
+    """ffmpeg'i bulur; winget ile yeni kurulduysa PATH yenilenmemiş olabilir."""
+    yol = shutil.which("ffmpeg")
+    if yol:
+        return yol
+    winget = os.path.expandvars(r"%LOCALAPPDATA%\Microsoft\WinGet\Links\ffmpeg.exe")
+    return winget if os.path.isfile(winget) else None
+
+
 def resolve(target, kullanici="", sifre=""):
     """Verilen adresi çalışan bir http(s) ya da rtsp adresine çevirir."""
     target = target.strip()
@@ -176,7 +185,7 @@ def resolve(target, kullanici="", sifre=""):
             _found[anahtar] = url
             print(f"[kamera] {host} için çalışan adres: http://{host}{path}")
             return url
-    if shutil.which("ffmpeg"):
+    if ffmpeg_yolu():
         return kimlik_ekle(f"rtsp://{host}:554/", kullanici, sifre)
     return None
 
@@ -459,10 +468,11 @@ class Handler(SimpleHTTPRequestHandler):
             time.sleep(max(0, 0.04 - (time.time() - t)))
 
     def stream_ffmpeg(self, url):
-        if not shutil.which("ffmpeg"):
+        ff = ffmpeg_yolu()
+        if not ff:
             return self.send_error(502, "RTSP icin ffmpeg kurulu olmali")
         p = subprocess.Popen(
-            ["ffmpeg", "-loglevel", "error", "-rtsp_transport", "tcp", "-i", url,
+            [ff, "-loglevel", "error", "-rtsp_transport", "tcp", "-i", url,
              "-an", "-f", "mpjpeg", "-boundary_tag", BOUNDARY.decode(), "-q:v", "4", "-"],
             stdout=subprocess.PIPE)
         self.send_response(200)

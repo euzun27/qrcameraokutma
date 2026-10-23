@@ -106,7 +106,8 @@ button.tehlike{border-color:var(--bad);color:var(--bad)}
       <button id="kVazgec" style="display:none">Vazgeç</button>
     </div>
     <div class="mesaj" id="kMesaj"></div>
-    <p class="hint">En kolayı sadece IP yazmak (ör. <code>192.168.1.152</code>): yaygın görüntü adresleri sırayla denenir. Tam görüntü linki de yazılabilir (ör. <code>http://192.168.1.152/cgi-bin/mjpg/video.cgi</code>); kameranın web sayfası adresi görüntü vermez. Kamera kullanıcı adı ve şifresini linke değil alttaki kutulara yazın. RTSP için bilgisayarda ffmpeg kurulu olmalıdır. Düzenlerken şifre boş bırakılırsa eski şifre korunur.</p>
+    <p class="hint">En kolayı sadece IP yazmak (ör. <code>192.168.1.152</code>): yaygın görüntü adresleri sırayla denenir. Tam görüntü linki de yazılabilir (ör. <code>http://192.168.1.152/cgi-bin/mjpg/video.cgi</code>); kameranın web sayfası adresi görüntü vermez. Kamera kullanıcı adı ve şifresini linke değil alttaki kutulara yazın.<br>
+    Hızlı canlı görüntü için RTSP önerilir (ffmpeg gerekir): Hikvision <code>rtsp://IP:554/Streaming/Channels/101</code>, Dahua <code>rtsp://IP:554/cam/realmonitor?channel=1&amp;subtype=0</code>. RTSP için bilgisayarda ffmpeg kurulu olmalıdır. Düzenlerken şifre boş bırakılırsa eski şifre korunur.</p>
     <img id="onizleme" alt="Kamera önizleme">
   </div>
   <div class="sekme" id="sHesap" hidden>
@@ -156,6 +157,8 @@ button.tehlike{border-color:var(--bad);color:var(--bad)}
           <label>Aynı kodu tekrar sayma (sn)</label><input id="cfgDedup" type="number" min="0.2" step="0.1">
           <label>Durunca otomatik yazdır</label><select id="cfgAutoPrint"><option value="0">Hayır</option><option value="1">Evet</option></select>
           <label>Sesli uyarı</label><select id="cfgSound"><option value="1">Açık</option><option value="0">Kapalı</option></select>
+          <label>Okunacak kodlar</label><select id="cfgFormats"><option value="all">Tüm barkodlar (QR, EAN, Code128, DataMatrix…)</option><option value="qr">Sadece QR (daha hızlı)</option></select>
+          <label>Görüntüyü aynala</label><select id="cfgMirror"><option value="0">Hayır</option><option value="1">Evet (kamera ters gösteriyorsa)</option></select>
         </div>
         <p class="hint">Sıra kontrolü: koddaki son sayı bir önceki doğru koddan "adım" kadar büyük olmalı (ör. PSK-000123 → PSK-000124), ön ve son ek aynı kalmalı. Farklı gelen kod YANLIŞ olur, sıra son doğru koddan devam eder. Bir poşet gerçekten eksikse "Sırayı son koddan devam ettir" ile yeni koddan devam edilir.<br>
         IP kameralar üstteki <b>Kurulum</b> düğmesinden eklenir; kamera adresle de açılabilir: <code>?kamera=kamera adı veya IP</code>.<br>
@@ -189,21 +192,23 @@ button.tehlike{border-color:var(--bad);color:var(--bad)}
 <div id="printLabel"></div>
 <script src="vendor/jsQR.js"></script>
 <script src="vendor/qrcode.js"></script>
+<script src="vendor/zxing.min.js"></script>
 <script>
 (() => {
 const $ = id => document.getElementById(id);
-const DEF = {mode:'seq', next:'', step:1, regex:'^.{4,}$', list:'', api:'', post:'', stop:3, dedup:1.5, autoPrint:'0', sound:'1', cam:'', ip:''};
+const DEF = {mode:'seq', next:'', step:1, regex:'^.{4,}$', list:'', api:'', post:'', stop:3, dedup:1.5, autoPrint:'0', sound:'1', formats:'all', mirror:'0', cam:''};
 let cfg = {...DEF};
 try { Object.assign(cfg, JSON.parse(localStorage.getItem('bantqr.cfg') || '{}')); } catch {}
 let log = [];
 try { log = JSON.parse(localStorage.getItem('bantqr.log') || '[]'); } catch {}
 
-const fields = {mode:'cfgMode', next:'cfgNext', step:'cfgStep', regex:'cfgRegex', list:'cfgList', api:'cfgApi', post:'cfgPost', stop:'cfgStop', dedup:'cfgDedup', autoPrint:'cfgAutoPrint', sound:'cfgSound'};
+const fields = {mode:'cfgMode', next:'cfgNext', step:'cfgStep', regex:'cfgRegex', list:'cfgList', api:'cfgApi', post:'cfgPost', stop:'cfgStop', dedup:'cfgDedup', autoPrint:'cfgAutoPrint', sound:'cfgSound', formats:'cfgFormats', mirror:'cfgMirror'};
 for (const [k, id] of Object.entries(fields)) $(id).value = cfg[k];
 $('saveCfg').onclick = () => {
   for (const [k, id] of Object.entries(fields)) cfg[k] = $(id).value;
   cfg.stop = +cfg.stop || DEF.stop; cfg.dedup = +cfg.dedup || DEF.dedup; cfg.step = Math.trunc(+cfg.step) || 1;
-  saveCfg(); showExpected();
+  saveCfg(); showExpected(); applyMirror();
+  detector = null; if (running) startDetector();
   setState(running ? 'run' : 'idle');
 };
 
@@ -384,7 +389,10 @@ async function loadIpCams() {
 }
 async function startDetector() {
   if (detector || !('BarcodeDetector' in window)) return;
-  try { if ((await BarcodeDetector.getSupportedFormats()).includes('qr_code')) detector = new BarcodeDetector({formats:['qr_code']}); } catch {}
+  try {
+    const sup = await BarcodeDetector.getSupportedFormats();
+    if (sup.includes('qr_code')) detector = new BarcodeDetector({formats: cfg.formats === 'qr' ? ['qr_code'] : sup});
+  } catch {}
 }
 function startIp(path) {
   video.style.display = 'none'; ipimg.style.display = '';
@@ -530,21 +538,52 @@ $('hKaydet').onclick = async () => {
 
 const cv = document.createElement('canvas'), cx = cv.getContext('2d', {willReadFrequently:true});
 let frames = 0, fpsT = performance.now(), busy = false, looping = false;
+// ZXing: QR, EAN-13/8, UPC, Code128/39/93, ITF, Codabar, DataMatrix, PDF417, Aztec
+let zx = null, zxFor = null;
+function zxReader() {
+  if (typeof ZXing === 'undefined') return null;
+  if (zx && zxFor === cfg.formats) return zx;
+  // TRY_HARDER kullanılmaz: kodsuz karede taramayı ~25 ms'den ~400 ms'ye çıkarıp ekranı kilitliyor
+  const hints = new Map();
+  if (cfg.formats === 'qr') hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [ZXing.BarcodeFormat.QR_CODE]);
+  zx = new ZXing.MultiFormatReader(); zx.setHints(hints); zxFor = cfg.formats;
+  return zx;
+}
+function zxDecode() {
+  const reader = zxReader();
+  if (!reader) return null;
+  try {
+    const bmp = new ZXing.BinaryBitmap(new ZXing.HybridBinarizer(new ZXing.HTMLCanvasElementLuminanceSource(cv)));
+    return reader.decodeWithState(bmp).getText();
+  } catch { return null; }  // kod bulunamadı
+}
+function applyMirror() {
+  const t = cfg.mirror === '1' ? 'scaleX(-1)' : '';
+  video.style.transform = t; ipimg.style.transform = t;
+}
 async function scan() {
   const w = src === video ? video.videoWidth : ipimg.naturalWidth, h = src === video ? video.videoHeight : ipimg.naturalHeight;
   if (busy || !w || (src === video && video.readyState < 2)) return;
   busy = true;
   try {
+    // İnce çizgili barkodlar için en fazla 1280 piksel genişlikte tara
+    const scale = Math.min(1, 1280 / w);
+    cv.width = w * scale | 0; cv.height = h * scale | 0;
+    cx.setTransform(cfg.mirror === '1' ? -1 : 1, 0, 0, 1, cfg.mirror === '1' ? cv.width : 0, 0);
+    cx.drawImage(src, 0, 0, cv.width, cv.height);
+    cx.setTransform(1, 0, 0, 1, 0, 0);
     if (detector) {
-      const r = await detector.detect(src);
+      const r = await detector.detect(cv);
       for (const b of r) if (b.rawValue) onCode(b.rawValue, 'kamera');
     } else {
-      const scale = Math.min(1, 960 / w);
-      cv.width = w * scale | 0; cv.height = h * scale | 0;
-      cx.drawImage(src, 0, 0, cv.width, cv.height);
-      const img = cx.getImageData(0, 0, cv.width, cv.height);
-      const r = jsQR(img.data, img.width, img.height, {inversionAttempts:'dontInvert'});
-      if (r && r.data) onCode(r.data, 'kamera');
+      let code = zxDecode();
+      // Yıpranmış QR'lar için ara sıra jsQR ile de dene
+      if (!code && frames % 3 === 0) {
+        const img = cx.getImageData(0, 0, cv.width, cv.height);
+        const r = jsQR(img.data, img.width, img.height, {inversionAttempts:'dontInvert'});
+        if (r && r.data) code = r.data;
+      }
+      if (code) onCode(code, 'kamera');
     }
   } catch (e) { console.warn(e); }
   busy = false; frames++;
@@ -554,11 +593,11 @@ function loop() {
   looping = true;
   scan();
   const now = performance.now();
-  if (now - fpsT > 1000) { $('fps').textContent = frames + ' tarama/sn' + (detector ? ' · yerleşik' : ' · jsQR'); frames = 0; fpsT = now; }
+  if (now - fpsT > 1000) { $('fps').textContent = frames + ' tarama/sn' + (detector ? ' · yerleşik' : ' · ZXing'); frames = 0; fpsT = now; }
   requestAnimationFrame(loop);
 }
 setInterval(checkStop, 250);
-showExpected();
+showExpected(); applyMirror();
 seqLastOk = (log.find(e => e.valid === true) || {}).code || null;
 drawLog();
 if (log[0]) { lastEntry = log[0]; render(lastEntry, false); }
