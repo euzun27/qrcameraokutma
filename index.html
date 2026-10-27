@@ -231,6 +231,7 @@ td .neden{font-size:11px;color:var(--muted);font-weight:400;margin-top:2px}
           <option value="regex">Kural (desen)</option>
           <option value="list">Geçerli kod listesi</option>
           <option value="api">Sistem API (HTTP)</option>
+          <option value="yok">Sadece oku ve listele (kontrol yok, alarm yok)</option>
         </select>
         <label for="cfgNext">Sıradaki beklenen kod</label><input id="cfgNext" placeholder="boş = ilk okunan kod sırayı başlatır">
         <label for="cfgStep">Sıra adımı</label><input id="cfgStep" type="number" step="1">
@@ -432,6 +433,7 @@ document.addEventListener('keydown', ev => {
 
 // ---- doğrulama ----
 async function validate(code) {
+  if (cfg.mode === 'yok') return true;  // test / sayım: her okuma kabul
   if (cfg.mode === 'seq') {
     const ok = !cfg.next ? nextOf(code) !== null : code === cfg.next;
     if (ok) { seqLastOk = code; setNext(nextOf(code)); }
@@ -491,8 +493,8 @@ async function onCode(code, src, tip) {
   render(entry, true);
   const beklenen = cfg.mode === 'seq' ? cfg.next : '';
   // Mükerrer: aynı kod daha önce DOĞRU okunmuş (ekrandaki listede ya da kalıcı kayıtlarda)
-  let mukerrer = log.some(e => e !== entry && e.code === code && e.valid === true);
-  if (!mukerrer) { try { mukerrer = (await (await api('/api/okuma/var?kod=' + encodeURIComponent(code))).json()).dogru > 0; } catch {} }
+  let mukerrer = cfg.mode !== 'yok' && log.some(e => e !== entry && e.code === code && e.valid === true);
+  if (!mukerrer && cfg.mode !== 'yok') { try { mukerrer = (await (await api('/api/okuma/var?kod=' + encodeURIComponent(code))).json()).dogru > 0; } catch {} }
   entry.valid = mukerrer ? false : await validate(code);
   entry.neden = entry.valid === true ? '' : mukerrer ? 'Mükerrer: bu kod daha önce okundu'
     : entry.valid === null ? 'Doğrulama sistemine ulaşılamadı'

@@ -144,17 +144,25 @@ class HikKamera:
                 self.calisiyor = False
             self.durum = "kapalı"
 
+    @staticmethod
+    def _sinirla(cam, s, ad, deger):
+        """Değeri kameranın izin verdiği aralığa çeker (ör. bu modelde kazanç en fazla ~11 dB)."""
+        v = s.MVCC_FLOATVALUE()
+        if cam.MV_CC_GetFloatValue(ad, v) == 0:
+            deger = min(max(deger, v.fMin), v.fMax)
+        cam.MV_CC_SetFloatValue(ad, deger)
+
     def _uygula(self, cam, s):
         a = self.ayar
         cam.MV_CC_SetEnumValue("TriggerMode", s.MV_TRIGGER_MODE_OFF)
         cam.MV_CC_SetEnumValueByString("PixelFormat", "Mono8")
         cam.MV_CC_SetEnumValue("ExposureAuto", 0)
-        cam.MV_CC_SetFloatValue("ExposureTime", a["pozlama_us"])
+        self._sinirla(cam, s, "ExposureTime", a["pozlama_us"])
         cam.MV_CC_SetEnumValue("GainAuto", 0)
-        cam.MV_CC_SetFloatValue("Gain", a["kazanc"])
+        self._sinirla(cam, s, "Gain", a["kazanc"])
         if a["kare_hizi"] > 0:
             cam.MV_CC_SetBoolValue("AcquisitionFrameRateEnable", True)
-            cam.MV_CC_SetFloatValue("AcquisitionFrameRate", a["kare_hizi"])
+            self._sinirla(cam, s, "AcquisitionFrameRate", a["kare_hizi"])
         else:
             cam.MV_CC_SetBoolValue("AcquisitionFrameRateEnable", False)
         self.yeniden_ayarla = False
