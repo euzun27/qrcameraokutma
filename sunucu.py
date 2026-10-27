@@ -38,6 +38,8 @@ from contextlib import contextmanager
 from http.cookies import SimpleCookie
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 
+import hikkamera
+
 UYGULAMA = "Dünyatek Hızlı Barkod Okuma Sistemi"
 PAKETLI = getattr(sys, "frozen", False)  # PyInstaller ile tek exe olarak mı çalışıyor
 # KOK: sayfa/kütüphane dosyaları (paketliyken exe'nin içinden açılan geçici klasör)
@@ -108,6 +110,7 @@ def kamera_disari(k):
     """Kamera kaydını tarayıcıya gönderilecek hale getirir (şifre gönderilmez)."""
     return {"id": k["id"], "ad": k["ad"], "adres": k["adres"], "tur": k.get("tur", "kamera"),
             "port": k.get("port"), "okunamadi": k.get("okunamadi", ""),
+            "pozlama_us": k.get("pozlama_us"), "kazanc": k.get("kazanc"), "kare_hizi": k.get("kare_hizi"),
             "kullanici": k.get("kullanici", ""), "sifre_var": bool(k.get("sifre"))}
 
 
@@ -575,6 +578,12 @@ class Handler(SimpleHTTPRequestHandler):
             return self.okuma_csv(qs)
         if yol == "/api/yazici":
             return self.json_yanit(200, yazici_ayar())
+        if yol == "/api/hikrobot":
+            try:
+                return self.json_yanit(200, {"cihazlar": hikkamera.cihazlar(), "hata": "",
+                                             "durumlar": hikkamera.durumlar()})
+            except OSError as e:
+                return self.json_yanit(200, {"cihazlar": [], "hata": str(e), "durumlar": {}})
         if yol == "/api/yazicilar":
             try:
                 return self.json_yanit(200, windows_yazicilari())
@@ -750,9 +759,21 @@ class Handler(SimpleHTTPRequestHandler):
         adres = str(v.get("adres", "")).strip()
         if not ad or len(ad) > 60:
             return self.hata(400, "Kamera adı 1-60 karakter olmalı")
-        if not adres or len(adres) > 300 or any(c.isspace() for c in adres):
+        tur = v.get("tur") if v.get("tur") in ("okuyucu", "hikrobot") else "kamera"
+        hik = {}
+        if tur == "hikrobot":
+            # adres = kameranın seri numarası (boş = bağlı ilk Hikrobot kamera)
+            if len(adres) > 64 or any(c.isspace() for c in adres):
+                return self.hata(400, "Kamera seri numarası geçersiz")
+            try:
+                hik = {"pozlama_us": float(v.get("pozlama_us") or 500), "kazanc": float(v.get("kazanc") or 0),
+                       "kare_hizi": float(v.get("kare_hizi") or 0)}
+            except (TypeError, ValueError):
+                return self.hata(400, "Pozlama, kazanç ve kare hızı sayı olmalı")
+            if not (20 <= hik["pozlama_us"] <= 1_000_000 and 0 <= hik["kazanc"] <= 24 and 0 <= hik["kare_hizi"] <= 300):
+                return self.hata(400, "Pozlama 20-1000000 µs, kazanç 0-24 dB, kare hızı 0-300 olmalı")
+        elif not adres or len(adres) > 300 or any(c.isspace() for c in adres):
             return self.hata(400, "Kamera adresi geçersiz")
-        tur = "okuyucu" if v.get("tur") == "okuyucu" else "kamera"
         port = None
         if tur == "okuyucu":
             if "://" in adres or "/" in adres:
@@ -763,7 +784,7 @@ class Handler(SimpleHTTPRequestHandler):
                 port = 0
             if not 1 <= port <= 65535:
                 return self.hata(400, "Port 1-65535 arasında olmalı")
-        elif "://" in adres and not adres.lower().startswith(("http://", "https://", "rtsp://")):
+        elif tur == "kamera" and "://" in adres and not adres.lower().startswith(("http://", "https://", "rtsp://")):
             return self.hata(400, "Adres http://, https:// veya rtsp:// ile başlamalı")
         with _kilit:
             a = ayar_oku()
@@ -776,6 +797,9 @@ class Handler(SimpleHTTPRequestHandler):
                 if not k:
                     return self.hata(404, "Kamera bulunamadı")
             k["ad"], k["adres"], k["tur"], k["port"] = ad, adres, tur, port
+            for alan in ("pozlama_us", "kazanc", "kare_hizi"):
+                k.pop(alan, None)
+            k.update(hik)
             k["okunamadi"] = str(v.get("okunamadi", "")).strip()[:40] if tur == "okuyucu" else ""
             k["kullanici"] = str(v.get("kullanici", "")).strip() if tur == "kamera" else ""
             if v.get("sifre") or not k["kullanici"]:
@@ -835,7 +859,18 @@ class Handler(SimpleHTTPRequestHandler):
                 k = next((x for x in ayar_oku()["kameralar"] if x["id"] == kid), None)
             if not k or k.get("tur") == "okuyucu":
                 return self.send_error(404, "Kamera bulunamadi")
+            if k.get("tur") == "hikrobot":
+                return self.stream_hik(k["adres"], k)
             url = resolve(k["adres"], k.get("kullanici", ""), k.get("sifre", ""))
+        elif "hik" in qs:
+            # Kurulumda kaydetmeden önce görüntü testi: /kamera?hik=<seri>&pozlama_us=..&kazanc=..
+            al = lambda a, d: qs.get(a, [d])[0] or d
+            try:
+                ayar = {"pozlama_us": min(max(float(al("pozlama_us", "500")), 20), 1_000_000),
+                        "kazanc": min(max(float(al("kazanc", "0")), 0), 24), "kare_hizi": 0}
+            except ValueError:
+                return self.send_error(400, "Gecersiz ayar")
+            return self.stream_hik(qs["hik"][0][:64], ayar)
         else:
             target = qs.get("url", [""])[0]
             url = resolve(target) if target else None
@@ -848,6 +883,32 @@ class Handler(SimpleHTTPRequestHandler):
                 self.stream_http(url)
         except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
             pass
+
+    def stream_hik(self, seri, ayar):
+        """Hikrobot (MVS SDK) kamerasının karelerini MJPEG olarak yayınlar."""
+        if not hikkamera.sdk():
+            print(f"[hikrobot] SDK yüklenemedi: {hikkamera.sdk_hatasi()}")
+            return self.send_error(502, "Hikrobot MVS kurulu degil")
+        kam = hikkamera.kamera_al(seri)
+        kam.ayarla(ayar.get("pozlama_us", 500), ayar.get("kazanc", 0), ayar.get("kare_hizi", 0))
+        kam.abone_ol()
+        try:
+            no, jpeg = kam.kare_bekle(0, zaman_asimi=8)  # kare no 0 = henüz kare yok
+            if jpeg is None:
+                print(f"[hikrobot] görüntü alınamadı: {kam.durum}")
+                return self.send_error(502, "Hikrobot kameradan goruntu alinamadi")
+            self.start_multipart()
+            self.send_frame(jpeg)
+            while True:
+                yeni, jpeg = kam.kare_bekle(no, zaman_asimi=5)
+                if yeni == no:
+                    continue  # kare gelmedi; bağlantı açık kalsın, kamera yeniden bağlanmayı dener
+                no = yeni
+                self.send_frame(jpeg)
+        except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
+            pass
+        finally:
+            kam.abonelikten_cik()
 
     def start_multipart(self):
         self.send_response(200)

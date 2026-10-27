@@ -112,7 +112,7 @@ button.tehlike{border-color:var(--bad);color:var(--bad)}
 @media(max-width:600px){.grid2{grid-template-columns:1fr}}
 #yaziciForm.windows .y-ag,#yaziciForm:not(.windows) .y-win{display:none}
 #bAdet{width:80px}
-#kamForm.okuyucu .t-kamera,#kamForm:not(.okuyucu) .t-okuyucu,.row.okuyucu .t-kamera{display:none}
+#kamForm:not(.kamera) .t-kamera,#kamForm:not(.okuyucu) .t-okuyucu,#kamForm:not(.hikrobot) .t-hik,#kamForm.hikrobot .t-adres,#kButonlar.okuyucu .t-test{display:none}
 #okuyucuPanel{display:none;position:absolute;inset:0;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center;padding:16px}
 #okuyucuPanel.goster{display:flex}
 #okuyucuDurum{font-size:18px;color:var(--muted)}
@@ -183,9 +183,13 @@ td .neden{font-size:11px;color:var(--muted);font-weight:400;margin-top:2px}
     <table class="kamtablo"><thead><tr><th>Kamera adı</th><th>IP / adres</th><th></th></tr></thead><tbody id="kamListe"></tbody></table>
     <h3 id="kamFormBaslik" style="margin:18px 0 0;font-size:15px">Kamera ekle</h3>
     <form id="kamForm" class="grid2" autocomplete="off">
-      <label for="kTur">Tür</label><select id="kTur"><option value="kamera">IP kamera (görüntüden okur)</option><option value="okuyucu">Barkod okuyucu (TCP, kodu cihaz okur)</option></select>
+      <label for="kTur">Tür</label><select id="kTur"><option value="kamera">IP kamera (görüntüden okur)</option><option value="okuyucu">Barkod okuyucu (TCP, kodu cihaz okur)</option><option value="hikrobot">Hikrobot endüstriyel kamera (USB3 / GigE, MVS)</option></select>
       <label for="kAd">Ad</label><input id="kAd" placeholder="ör. Hat 1 giriş" maxlength="60" required>
-      <label for="kAdres">IP adresi</label><input id="kAdres" placeholder="ör. 192.168.1.152 veya http://… / rtsp://…" maxlength="300" required>
+      <label for="kAdres" class="t-adres">IP adresi</label><input id="kAdres" class="t-adres" placeholder="ör. 192.168.1.152 veya http://… / rtsp://…" maxlength="300">
+      <label for="kHik" class="t-hik">Kamera</label><div class="t-hik row" style="margin:0"><select id="kHik" style="flex:1"></select><button type="button" id="kHikYenile" title="Bağlı kameraları yeniden ara">↻</button></div>
+      <label for="kPoz" class="t-hik">Pozlama süresi (µs)</label><input id="kPoz" class="t-hik" type="number" min="20" max="1000000" step="10" placeholder="hızlı bant için 100-500">
+      <label for="kKazanc" class="t-hik">Kazanç (dB)</label><input id="kKazanc" class="t-hik" type="number" min="0" max="24" step="0.5" placeholder="0-24; görüntü karanlıksa artırın">
+      <label for="kKare" class="t-hik">Kare hızı (kare/sn)</label><input id="kKare" class="t-hik" type="number" min="0" max="300" step="1" placeholder="0 = kameranın en yüksek hızı">
       <label for="kPort" class="t-okuyucu">TCP port</label><input id="kPort" class="t-okuyucu" type="number" min="1" max="65535" placeholder="okuyucunun kod gönderdiği port">
       <label for="kNoRead" class="t-okuyucu">Okunamadı metni</label><input id="kNoRead" class="t-okuyucu" maxlength="40" placeholder="ör. NoRead (okuyucu okuyamayınca gönderdiği metin, isteğe bağlı)">
       <label for="kKul" class="t-kamera">Kamera kullanıcı adı</label><input id="kKul" class="t-kamera" placeholder="isteğe bağlı" autocomplete="off">
@@ -193,11 +197,12 @@ td .neden{font-size:11px;color:var(--muted);font-weight:400;margin-top:2px}
     </form>
     <div class="row" id="kButonlar">
       <button id="kKaydet" class="primary">Kaydet</button>
-      <button id="kTest" class="t-kamera">Görüntüyü test et</button>
+      <button id="kTest" class="t-test">Görüntüyü test et</button>
       <button id="kVazgec" style="display:none">Vazgeç</button>
     </div>
     <div class="mesaj" id="kMesaj"></div>
     <p class="hint">En kolayı sadece IP yazmak (ör. <code>192.168.1.152</code>): yaygın görüntü adresleri sırayla denenir. Tam görüntü linki de yazılabilir (ör. <code>http://192.168.1.152/cgi-bin/mjpg/video.cgi</code>); kameranın web sayfası adresi görüntü vermez. Kamera kullanıcı adı ve şifresini linke değil alttaki kutulara yazın.<br>
+    <b>Hikrobot kamera:</b> bilgisayarda Hikrobot MVS kurulu olmalı; MVS programı kameraya bağlıyken bu program kamerayı açamaz. Hızlı bantta bulanıklığı önlemek için pozlamayı kısa tutun (100-500 µs) ve ortamı iyi aydınlatın.<br>
     <b>Barkod okuyucu:</b> okuyucuyu "TCP sunucu" modunda kodu metin olarak gönderecek şekilde ayarlayın; uygulama IP ve porta bağlanıp gelen her satırı bir kod sayar.<br>
     Hızlı canlı görüntü için RTSP önerilir (ffmpeg gerekir): Hikvision <code>rtsp://IP:554/Streaming/Channels/101</code>, Dahua <code>rtsp://IP:554/cam/realmonitor?channel=1&amp;subtype=0</code>. RTSP için bilgisayarda ffmpeg kurulu olmalıdır. Düzenlerken şifre boş bırakılırsa eski şifre korunur.</p>
     <img id="onizleme" alt="Kamera önizleme">
@@ -673,7 +678,7 @@ async function listCams() {
   const cur = $('camSel').value || cfg.cam;
   let opts = ipCams.map(k => k.tur === 'okuyucu'
     ? `<option value="okuyucu:${esc(k.id)}">${esc(k.ad)} (okuyucu ${esc(k.adres)}:${k.port})</option>`
-    : `<option value="ipcam:${esc(k.id)}">${esc(k.ad)} (${esc(k.adres)})</option>`).join('');
+    : `<option value="ipcam:${esc(k.id)}">${esc(k.ad)} (${k.tur === 'hikrobot' ? 'Hikrobot ' + esc(k.adres || 'USB') : esc(k.adres)})</option>`).join('');
   if (qsCam && !ipCams.some(k => k.ad === qsCam || k.adres === qsCam)) opts += `<option value="ipurl">${esc(qsCam)}</option>`;
   opts += devs.map((d, i) => `<option value="${esc(d.deviceId)}">${esc(d.label || 'USB kamera ' + (i + 1))}</option>`).join('');
   if (!devs.length) opts += '<option value="">Bilgisayar kamerası</option>';
@@ -778,20 +783,41 @@ let duzenlenen = null;
 function kamListeCiz() {
   $('kamListe').innerHTML = ipCams.length ? ipCams.map(k =>
     `<tr><td>${esc(k.ad)}</td><td>${k.tur === 'okuyucu' ? esc(k.adres) + ':' + k.port + ' <span class="hint">(okuyucu)</span>'
+      : k.tur === 'hikrobot' ? 'Hikrobot ' + esc(k.adres || '(ilk kamera)') + ` <span class="hint">(${k.pozlama_us} µs, ${k.kazanc} dB)</span>`
       : esc(k.adres) + (k.kullanici ? ' <span class="hint">(' + esc(k.kullanici) + ')</span>' : '')}</td>
      <td><button data-duzenle="${esc(k.id)}">Düzenle</button> <button class="tehlike" data-sil="${esc(k.id)}">Sil</button></td></tr>`).join('')
     : '<tr><td colspan="3" class="hint">Henüz kamera eklenmedi.</td></tr>';
 }
 function turGoster() {
-  const ok = $('kTur').value === 'okuyucu';
-  $('kamForm').classList.toggle('okuyucu', ok); $('kButonlar').classList.toggle('okuyucu', ok);
+  const tur = $('kTur').value, ok = tur === 'okuyucu';
+  for (const t of ['kamera', 'okuyucu', 'hikrobot']) { $('kamForm').classList.toggle(t, t === tur); $('kButonlar').classList.toggle(t, t === tur); }
   $('kPort').required = ok;
   $('kAdres').placeholder = ok ? 'ör. 192.168.1.50' : 'ör. 192.168.1.152 veya http://… / rtsp://…';
   if (ok) onizlemeKapat();
+  if (tur === 'hikrobot') {
+    if (!$('kPoz').value) $('kPoz').value = 500;
+    if (!$('kKazanc').value) $('kKazanc').value = 6;
+    if (!$('kKare').value) $('kKare').value = 0;
+    if (!$('kHik').options.length) hikListele();
+  }
 }
+// Bağlı Hikrobot kameralar (MVS SDK ile)
+async function hikListele(secili) {
+  $('kHik').innerHTML = '<option value="">aranıyor…</option>';
+  let j = {cihazlar: [], hata: ''};
+  try { j = await (await api('/api/hikrobot')).json(); } catch {}
+  const sec = secili !== undefined ? secili : $('kHik').dataset.secili || '';
+  $('kHik').innerHTML = '<option value="">İlk bulunan Hikrobot kamera</option>'
+    + j.cihazlar.map(c => `<option value="${esc(c.seri)}">${esc(c.model)} · ${esc(c.seri)} (${esc(c.baglanti)})</option>`).join('')
+    + (sec && !j.cihazlar.some(c => c.seri === sec) ? `<option value="${esc(sec)}">${esc(sec)} (şu an bağlı değil)</option>` : '');
+  $('kHik').value = sec;
+  if (j.hata) mesaj('kMesaj', 'Hikrobot: ' + j.hata, 'hata');
+  else if (!j.cihazlar.length) mesaj('kMesaj', 'Bağlı Hikrobot kamera bulunamadı. USB kablosunu kontrol edin.', 'hata');
+}
+$('kHikYenile').onclick = () => hikListele();
 $('kTur').onchange = turGoster;
 function kamFormTemizle() {
-  duzenlenen = null; $('kamForm').reset(); turGoster(); $('kamFormBaslik').textContent = 'Kamera / okuyucu ekle';
+  duzenlenen = null; $('kamForm').reset(); $('kHik').dataset.secili = ''; turGoster(); $('kamFormBaslik').textContent = 'Kamera / okuyucu ekle';
   $('kSifre').placeholder = 'isteğe bağlı'; $('kVazgec').style.display = 'none'; mesaj('kMesaj', ''); onizlemeKapat();
   kamListeCiz();
 }
@@ -803,6 +829,10 @@ $('kamListe').onclick = async ev => {
     $('kTur').value = k.tur || 'kamera'; turGoster();
     $('kAd').value = k.ad; $('kAdres').value = k.adres; $('kKul').value = k.kullanici; $('kSifre').value = '';
     $('kPort').value = k.port || ''; $('kNoRead').value = k.okunamadi || '';
+    if (k.tur === 'hikrobot') {
+      $('kPoz').value = k.pozlama_us; $('kKazanc').value = k.kazanc; $('kKare').value = k.kare_hizi;
+      $('kHik').dataset.secili = k.adres; hikListele(k.adres);
+    }
     $('kSifre').placeholder = k.sifre_var ? 'boş = eski şifre korunur' : 'isteğe bağlı';
     $('kVazgec').style.display = ''; mesaj('kMesaj', ''); $('kAd').focus();
   } else if (d.sil) {
@@ -815,8 +845,11 @@ $('kamListe').onclick = async ev => {
 $('kVazgec').onclick = kamFormTemizle;
 $('kKaydet').onclick = async () => {
   if (!$('kamForm').reportValidity()) return;
-  const body = {tur: $('kTur').value, ad: $('kAd').value.trim(), adres: $('kAdres').value.trim(), kullanici: $('kKul').value.trim(), sifre: $('kSifre').value,
-    port: $('kPort').value, okunamadi: $('kNoRead').value.trim()};
+  const tur = $('kTur').value;
+  if (tur !== 'hikrobot' && !$('kAdres').value.trim()) { $('kAdres').focus(); return mesaj('kMesaj', 'IP adresini yazın.', 'hata'); }
+  const body = {tur, ad: $('kAd').value.trim(), adres: tur === 'hikrobot' ? $('kHik').value : $('kAdres').value.trim(),
+    kullanici: $('kKul').value.trim(), sifre: $('kSifre').value, port: $('kPort').value, okunamadi: $('kNoRead').value.trim(),
+    pozlama_us: $('kPoz').value, kazanc: $('kKazanc').value, kare_hizi: $('kKare').value};
   const r = await api('/api/kameralar' + (duzenlenen ? '/' + encodeURIComponent(duzenlenen) : ''), body);
   if (!r.ok) return mesaj('kMesaj', await hataMetni(r), 'hata');
   const k = await r.json();
@@ -826,10 +859,12 @@ $('kKaydet').onclick = async () => {
 function onizlemeKapat() { $('onizleme').removeAttribute('src'); $('onizleme').style.display = 'none'; }
 $('kTest').onclick = () => {
   const adres = $('kAdres').value.trim();
-  if (!adres) return mesaj('kMesaj', 'Önce IP adresini yazın.', 'hata');
   let yol;
   const kayitli = duzenlenen && ipCams.find(x => x.id === duzenlenen);
-  if (kayitli && kayitli.adres === adres && !$('kSifre').value && $('kKul').value.trim() === kayitli.kullanici) yol = '/kamera?id=' + encodeURIComponent(duzenlenen);
+  if ($('kTur').value === 'hikrobot') {
+    yol = '/kamera?' + new URLSearchParams({hik: $('kHik').value, pozlama_us: $('kPoz').value || 500, kazanc: $('kKazanc').value || 0});
+  } else if (!adres) return mesaj('kMesaj', 'Önce IP adresini yazın.', 'hata');
+  else if (kayitli && kayitli.adres === adres && !$('kSifre').value && $('kKul').value.trim() === kayitli.kullanici) yol = '/kamera?id=' + encodeURIComponent(duzenlenen);
   else {
     let u = adres; const kul = $('kKul').value.trim();
     if (kul) u = (adres.includes('://') ? adres : 'http://' + adres).replace('://', '://' + encodeURIComponent(kul) + ':' + encodeURIComponent($('kSifre').value) + '@');
@@ -838,7 +873,14 @@ $('kTest').onclick = () => {
   mesaj('kMesaj', 'Kameraya bağlanılıyor… (birkaç saniye sürebilir)');
   const img = $('onizleme');
   img.onload = () => mesaj('kMesaj', 'Görüntü alındı ✓', 'basari');
-  img.onerror = () => { mesaj('kMesaj', 'Kameradan görüntü alınamadı. Adresi, kullanıcı adı ve şifreyi kontrol edin.', 'hata'); img.style.display = 'none'; };
+  img.onerror = async () => {
+    img.style.display = 'none';
+    let neden = 'Adresi, kullanıcı adı ve şifreyi kontrol edin.';
+    if ($('kTur').value === 'hikrobot') {
+      try { const d = (await (await api('/api/hikrobot')).json()).durumlar[$('kHik').value] || ''; neden = d.replace(/^hata: /, '') || 'MVS kurulu mu, kamera bağlı mı kontrol edin.'; } catch {}
+    }
+    mesaj('kMesaj', 'Kameradan görüntü alınamadı. ' + neden, 'hata');
+  };
   img.style.display = 'block'; img.src = yol + '&t=' + Date.now();
 };
 
