@@ -12,6 +12,7 @@ Ayarlar (kullanıcı, kameralar) veri/ayarlar.json dosyasında tutulur.
 
 /kamera?id=<kamera no>  -> kurulumda kayıtlı kamera
 /kamera?url=...         -> doğrudan adres:
+  hikrobot[:n|:seri][?pozlama=us&kazanc=dB&fps=n] -> Hikrobot USB/GigE kamera (MVS SDK, hikrobot.py)
   192.168.1.152                      -> bilinen MJPEG / anlık görüntü adresleri sırayla denenir
   http://kullanici:sifre@ip/yol      -> MJPEG akışı veya tek JPEG (tek JPEG ise sürekli yenilenir)
   rtsp://kullanici:sifre@ip:554/yol  -> ffmpeg kuruluysa MJPEG'e çevrilir
@@ -32,6 +33,8 @@ import urllib.request
 import webbrowser
 from http.cookies import SimpleCookie
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+
+import hikrobot
 
 UYGULAMA = "Dunyatek Kamera Okutma"
 KOK = os.path.dirname(os.path.abspath(__file__))
@@ -399,9 +402,13 @@ class Handler(SimpleHTTPRequestHandler):
                 k = next((x for x in ayar_oku()["kameralar"] if x["id"] == kid), None)
             if not k:
                 return self.send_error(404, "Kamera bulunamadi")
+            if hikrobot.adres_mi(k["adres"]):
+                return self.stream_hikrobot(k["adres"])
             url = resolve(k["adres"], k.get("kullanici", ""), k.get("sifre", ""))
         else:
             target = qs.get("url", [""])[0]
+            if hikrobot.adres_mi(target):
+                return self.stream_hikrobot(target)
             url = resolve(target) if target else None
         if not url:
             return self.send_error(502, "Kamera adresi bulunamadi")
@@ -450,6 +457,27 @@ class Handler(SimpleHTTPRequestHandler):
                 self.send_frame(res[0].read())
                 res[0].close()
             time.sleep(max(0, 0.04 - (time.time() - t)))
+
+    def stream_hikrobot(self, adres):
+        """Hikrobot (MVS SDK) kameranın karelerini MJPEG olarak yayınlar."""
+        try:
+            kam = hikrobot.kamera_al(adres)
+        except Exception as e:
+            return self.send_error(502, "Hikrobot: " + str(e))
+        sayac, jpg = kam.kare_bekle(kam.sayac - 1 if kam.jpeg else kam.sayac, 8)
+        if jpg is None:
+            return self.send_error(502, "Hikrobot kameradan goruntu alinamadi: " + (kam.hata or "zaman asimi"))
+        self.start_multipart()
+        try:
+            while True:
+                self.send_frame(jpg)
+                sayac, jpg = kam.kare_bekle(sayac, 5)
+                if jpg is None:
+                    if kam.hata:
+                        break
+                    jpg = kam.jpeg  # bant durdu / kare gelmiyor: son kareyi tekrar gönder
+        except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
+            pass
 
     def stream_ffmpeg(self, url):
         if not shutil.which("ffmpeg"):
