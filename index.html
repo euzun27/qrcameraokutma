@@ -1,0 +1,1003 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dünyatek Hızlı Barkod Okuma Sistemi</title>
+<link rel="icon" href="/gorsel/logo.png">
+<style>
+:root{--bg:#10141a;--panel:#171c24;--panel2:#1d232d;--ust:#1b2028;--line:#28303c;--text:#e6ebf2;--muted:#8792a2;--ok:#1fae5b;--bad:#e5383b;--warn:#f0a202;--accent:#2f80ed;--accent2:#5aa2ff}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 "Segoe UI",system-ui,Roboto,sans-serif;display:flex;flex-direction:column}
+button,select,input,textarea{font:inherit;color:var(--text);background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:7px 11px}
+input:focus,select:focus,textarea:focus{outline:1px solid var(--accent);border-color:var(--accent)}
+button{cursor:pointer;transition:background .15s,border-color .15s}
+button:hover{border-color:var(--accent)}
+button.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+button.primary:hover{background:var(--accent2)}
+/* Üst bar */
+header.ust{display:flex;align-items:center;gap:16px;padding:0 16px;height:64px;background:var(--ust);border-bottom:3px solid var(--accent);flex:none}
+.marka{display:flex;align-items:center;gap:16px;flex:1;min-width:0}
+.marka img{height:42px;width:auto;display:block}
+.marka .ayrac{width:1px;height:34px;background:var(--line)}
+.marka .urun{display:flex;flex-direction:column;line-height:1.2;min-width:0}
+.marka .urun b{font-size:17px;font-weight:600;color:var(--accent2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.marka .urun small{font-size:11px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase}
+.ust-sag{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+#camSel{max-width:280px}
+#kimin{color:var(--muted);font-size:13px;padding:0 4px}
+.pill{padding:4px 12px;border-radius:99px;font-weight:600;font-size:12px;background:#2a313a;white-space:nowrap}
+.pill.run{background:var(--ok);color:#fff}.pill.stop{background:var(--warn);color:#111}
+/* Üç sütun */
+main.duzen{flex:1;min-height:0;display:grid;grid-template-columns:290px minmax(0,1fr) minmax(380px,460px)}
+main.duzen>*{min-height:0;overflow:auto}
+aside.sol{background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column}
+section.orta{padding:16px;display:flex;flex-direction:column;gap:12px}
+aside.sag{background:var(--panel);border-left:1px solid var(--line);padding:14px;display:flex;flex-direction:column;gap:12px}
+.panel-bas{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;font-size:12px;font-weight:700;letter-spacing:1.5px;color:var(--muted);border-bottom:1px solid var(--line);text-transform:uppercase}
+/* Parametre bölümleri */
+details.bolum{border-bottom:1px solid var(--line)}
+details.bolum>summary{list-style:none;cursor:pointer;padding:12px 14px;font-size:12px;font-weight:700;letter-spacing:1px;color:var(--accent2);text-transform:uppercase;display:flex;justify-content:space-between}
+details.bolum>summary::-webkit-details-marker{display:none}
+details.bolum>summary::after{content:"▾";color:var(--muted)}
+details.bolum:not([open])>summary::after{content:"▸"}
+.alan{padding:0 14px 14px;display:flex;flex-direction:column;gap:4px}
+.alan label{font-size:12px;color:var(--muted);margin-top:6px}
+.alan input,.alan select,.alan textarea{width:100%}
+.sol-alt{margin-top:auto;padding:12px 14px;border-top:1px solid var(--line);position:sticky;bottom:0;background:var(--panel)}
+.sol-alt button{width:100%}
+/* Görüntü */
+.kart{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:12px}
+.video-wrap{position:relative;background:#000;border:1px dashed #33475f;border-radius:6px;overflow:hidden;aspect-ratio:16/9;width:100%}
+video{width:100%;height:100%;object-fit:contain;display:block}
+#flash{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:clamp(48px,8vw,110px);font-weight:900;letter-spacing:4px;opacity:0;transition:opacity .15s;pointer-events:none;text-shadow:0 4px 20px #000}
+#flash.bad{background:rgba(229,56,59,.55);opacity:1}#flash.ok{background:rgba(31,174,91,.25);opacity:1}
+#fps{position:absolute;right:8px;bottom:6px;font-size:12px;color:#ccc;background:#000a;padding:2px 8px;border-radius:4px}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.istat{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.istat>div{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px 14px}
+.istat span{display:block;font-size:11px;letter-spacing:1px;color:var(--muted);text-transform:uppercase}
+.istat b{font-size:28px;font-weight:700}
+.ok{color:var(--ok)}.bad{color:var(--bad)}
+/* Sonuçlar */
+.bilgi{background:#16304f;border-left:4px solid var(--accent);border-radius:4px;padding:10px 14px;color:#cfe2ff}
+#stopPanel{display:none;border:2px solid var(--warn);border-radius:8px;padding:12px 14px;background:#2a2410}
+#stopPanel.show{display:block}
+#stopPanel h2{margin:0 0 6px;color:var(--warn);font-size:15px;letter-spacing:1px}
+#stopCode{font-size:clamp(24px,3vw,40px);font-weight:900;word-break:break-all}
+.baslik-kucuk{font-size:11px;letter-spacing:1px;color:var(--muted);text-transform:uppercase}
+#last{font-size:clamp(20px,2.4vw,30px);font-weight:800;word-break:break-all;margin:2px 0}
+#lastStatus{font-size:clamp(24px,3vw,40px);font-weight:900}
+#seqBox{font-size:13px;color:var(--muted);margin-top:6px}
+#seqBox b{color:var(--text);word-break:break-all}
+table{width:100%;border-collapse:collapse;font-size:13px}
+td,th{padding:7px 8px;border-bottom:1px solid var(--line);text-align:left}
+th{color:var(--muted);font-weight:600;font-size:11px;letter-spacing:1px;text-transform:uppercase;position:sticky;top:0;background:var(--panel2)}
+td.kod{font-family:Consolas,"Cascadia Mono",monospace;word-break:break-all}
+td.no{color:var(--muted);width:36px}
+.tip{display:inline-block;padding:1px 8px;border-radius:4px;background:#163a66;color:#8cc0ff;font-size:12px;white-space:nowrap}
+.logbox{flex:1;min-height:200px;overflow:auto;border:1px solid var(--line);border-radius:8px}
+.hint{color:var(--muted);font-size:12px}
+@media(max-width:1400px){.marka .urun small{display:none}.marka .urun b{white-space:normal;font-size:15px}.marka{gap:12px}}
+@media(max-width:1280px){main.duzen{grid-template-columns:minmax(0,1fr) minmax(340px,420px)}aside.sol{grid-column:1/-1;order:3;border-right:0;border-top:1px solid var(--line)}}
+@media(max-width:900px){main.duzen{display:flex;flex-direction:column;overflow:auto}main.duzen>*{overflow:visible;flex:none;min-height:auto}header.ust{height:auto;padding:10px 16px;flex-wrap:wrap}.logbox{flex:none;max-height:420px}}
+/* Etiket */
+#label{background:#fff;color:#000;border-radius:6px;padding:10px;display:flex;gap:12px;align-items:center;width:100%;max-width:420px}
+#label .q{width:100px;height:100px;flex:none}#label .q img,#label .q svg{width:100%;height:100%}
+#label .t{flex:1;min-width:0}
+#label .code{font-size:18px;font-weight:800;word-break:break-all}
+#label .st{font-size:16px;font-weight:900;margin-top:4px}
+#label .dt{font-size:12px;margin-top:4px}
+#printLabel{display:none}
+/* Kurulum penceresi */
+dialog{background:var(--panel);color:var(--text);border:1px solid var(--line);border-top:3px solid var(--accent);border-radius:8px;padding:0;width:min(780px,calc(100vw - 32px));max-height:calc(100vh - 32px)}
+dialog::backdrop{background:#000b}
+.dlg-bas{display:flex;align-items:center;gap:8px;padding:12px 16px;border-bottom:1px solid var(--line)}
+.dlg-bas h2{margin:0;font-size:16px;flex:1}
+.sekmeler{display:flex;gap:4px;padding:10px 16px 0;border-bottom:1px solid var(--line)}
+.sekmeler button{border:0;border-radius:6px 6px 0 0;background:none;color:var(--muted);padding:8px 14px}
+.sekmeler button.aktif{background:var(--panel2);color:var(--text);font-weight:600;box-shadow:inset 0 -2px 0 var(--accent)}
+.sekme{padding:16px;overflow:auto;max-height:calc(100vh - 160px)}
+.sekme[hidden]{display:none}
+.grid2{display:grid;grid-template-columns:180px 1fr;gap:8px;align-items:center;margin-top:10px}
+.grid2 input,.grid2 select,.grid2 textarea{width:100%}
+.kamtablo td:last-child{white-space:nowrap;text-align:right}
+.kamtablo button{padding:5px 10px;font-size:13px}
+button.tehlike{border-color:var(--bad);color:var(--bad)}
+.mesaj{min-height:20px;margin-top:8px;font-size:14px}
+.mesaj.hata{color:var(--bad)}.mesaj.basari{color:var(--ok)}
+#onizleme{display:none;margin-top:12px;background:#000;border-radius:6px;aspect-ratio:16/9;width:100%;object-fit:contain}
+.uyari{background:#f0a20222;border:1px solid var(--warn);color:var(--warn);border-radius:6px;padding:8px 12px;margin-bottom:12px;font-size:14px}
+@media(max-width:600px){.grid2{grid-template-columns:1fr}}
+#yaziciForm.windows .y-ag,#yaziciForm:not(.windows) .y-win{display:none}
+#bAdet{width:80px}
+#kamForm:not(.kamera) .t-kamera,#kamForm:not(.okuyucu) .t-okuyucu,#kamForm:not(.hikrobot) .t-hik,#kamForm.hikrobot .t-adres,#kButonlar.okuyucu .t-test{display:none}
+#okuyucuPanel{display:none;position:absolute;inset:0;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center;padding:16px}
+#okuyucuPanel.goster{display:flex}
+#okuyucuDurum{font-size:18px;color:var(--muted)}
+#okuyucuDurum.bagli{color:var(--ok)}#okuyucuDurum.kopuk{color:var(--bad)}
+#okuyucuSon{font-size:clamp(24px,4vw,44px);font-weight:800;word-break:break-all}
+/* YANLIŞ alarmı: tüm ekranı kaplar */
+#alarm{display:none;position:fixed;inset:0;z-index:50;align-items:center;justify-content:center;background:rgba(160,10,15,.82);animation:yanson .5s steps(2) infinite}
+#alarm.goster{display:flex}
+@keyframes yanson{50%{background:rgba(229,56,59,.92)}}
+.alarm-kutu{text-align:center;padding:24px;max-width:90vw}
+.alarm-baslik{font-size:clamp(64px,14vw,180px);font-weight:900;letter-spacing:6px;line-height:1;text-shadow:0 6px 30px #000}
+.alarm-kod{font-size:clamp(20px,3vw,40px);font-weight:800;margin-top:16px;word-break:break-all;font-family:Consolas,monospace}
+.alarm-neden{font-size:clamp(18px,2.4vw,30px);margin-top:10px}
+#alarmSustur{margin-top:28px;font-size:22px;font-weight:800;padding:14px 32px;background:#fff;color:#a00;border:0;border-radius:8px}
+#alarmSustur small{font-weight:400;font-size:14px;color:#555}
+td .neden{font-size:11px;color:var(--muted);font-weight:400;margin-top:2px}
+#kayitlar{width:min(1200px,calc(100vw - 32px))}
+#kayitlar .row label{display:flex;flex-direction:column;font-size:12px;color:var(--muted);gap:4px}
+@media print{
+  body{background:#fff;display:block}
+  body>*:not(#printLabel){display:none!important}
+  #printLabel{display:block}
+  #printLabel #label{max-width:none;border-radius:0;display:flex!important}
+}
+</style>
+</head>
+<body>
+<header class="ust">
+  <div class="marka">
+    <img src="/gorsel/logo.png" alt="Dünyatek Bilişim">
+    <span class="ayrac"></span>
+    <div class="urun"><b>Hızlı Barkod Okuma Sistemi</b><small>Dünyatek Bilişim Teknolojileri</small></div>
+  </div>
+  <div class="ust-sag">
+    <span id="state" class="pill">Kamera kapalı</span>
+    <select id="camSel" title="Kamera / okuyucu"></select>
+    <button id="startBtn" class="primary">▶ Başlat</button>
+    <span id="kimin"></span>
+    <button id="kayitlarBtn">📋 Kayıtlar</button>
+    <button id="kurulumBtn">⚙ Kurulum</button>
+    <button id="cikisBtn">Çıkış</button>
+  </div>
+</header>
+<dialog id="kurulum">
+  <div class="dlg-bas"><h2>Kurulum</h2><button id="kurulumKapat" title="Kapat">✕</button></div>
+  <div class="sekmeler">
+    <button data-sekme="sKamera" class="aktif">Kameralar</button>
+    <button data-sekme="sYazici">Etiket yazıcı</button>
+    <button data-sekme="sHesap">Kullanıcı / Şifre</button>
+  </div>
+  <div class="sekme" id="sYazici" hidden>
+    <form id="yaziciForm" class="grid2" autocomplete="off">
+      <label for="yBag">Bağlantı</label><select id="yBag"><option value="ag">Ağ (Ethernet, IP adresi)</option><option value="windows">Windows yazıcısı (USB)</option></select>
+      <label for="yIp" class="y-ag">Yazıcı IP adresi</label><input id="yIp" class="y-ag" placeholder="ör. 192.168.1.60">
+      <label for="yPort" class="y-ag">Port</label><input id="yPort" class="y-ag" type="number" min="1" max="65535" value="9100">
+      <label for="yWin" class="y-win">Windows yazıcısı</label><select id="yWin" class="y-win"></select>
+      <label for="yDpi">Çözünürlük</label><select id="yDpi"><option value="203">203 dpi (8 nokta/mm)</option><option value="300">300 dpi (12 nokta/mm)</option><option value="600">600 dpi</option></select>
+      <label for="yGen">Etiket genişliği (mm)</label><input id="yGen" type="number" min="10" max="300" step="0.5">
+      <label for="yYuk">Etiket yüksekliği (mm)</label><input id="yYuk" type="number" min="10" max="300" step="0.5">
+      <label for="yAdet">Varsayılan adet</label><input id="yAdet" type="number" min="1" max="9999">
+      <label for="ySablon">Özel ZPL şablonu</label><textarea id="ySablon" rows="5" placeholder="Boş = hazır şablon (QR + kod + durum + tarih). ZebraDesigner'dan ZPL yapıştırılabilir; yer tutucular: {KOD} {DURUM} {TARIH} {SAAT} {ADET}" style="font-family:Consolas,monospace;font-size:12px"></textarea>
+    </form>
+    <div class="row" style="margin-top:12px"><button id="yKaydet" class="primary">Kaydet</button><button id="yTest">Test etiketi bas</button></div>
+    <div class="mesaj" id="yMesaj"></div>
+    <p class="hint">Zebra ZT410/ZT411 ağ üzerinden bağlanıyorsa yazıcının IP adresini girin (port genelde 9100). USB ile bağlıysa Windows'a kurulu Zebra yazıcısını seçin; etiket ZPL olarak ham (RAW) gönderilir. Adet, yazıcıya tek komutla (^PQ) iletilir.</p>
+  </div>
+  <div class="sekme" id="sKamera">
+    <table class="kamtablo"><thead><tr><th>Kamera adı</th><th>IP / adres</th><th></th></tr></thead><tbody id="kamListe"></tbody></table>
+    <h3 id="kamFormBaslik" style="margin:18px 0 0;font-size:15px">Kamera ekle</h3>
+    <form id="kamForm" class="grid2" autocomplete="off">
+      <label for="kTur">Tür</label><select id="kTur"><option value="kamera">IP kamera (görüntüden okur)</option><option value="okuyucu">Barkod okuyucu (TCP, kodu cihaz okur)</option><option value="hikrobot">Hikrobot endüstriyel kamera (USB3 / GigE, MVS)</option></select>
+      <label for="kAd">Ad</label><input id="kAd" placeholder="ör. Hat 1 giriş" maxlength="60" required>
+      <label for="kAdres" class="t-adres">IP adresi</label><input id="kAdres" class="t-adres" placeholder="ör. 192.168.1.152 veya http://… / rtsp://…" maxlength="300">
+      <label for="kHik" class="t-hik">Kamera</label><div class="t-hik row" style="margin:0"><select id="kHik" style="flex:1"></select><button type="button" id="kHikYenile" title="Bağlı kameraları yeniden ara">↻</button></div>
+      <label for="kPoz" class="t-hik">Pozlama süresi (µs)</label><input id="kPoz" class="t-hik" type="number" min="20" max="1000000" step="10" placeholder="hızlı bant için 100-500">
+      <label for="kKazanc" class="t-hik">Kazanç (dB)</label><input id="kKazanc" class="t-hik" type="number" min="0" max="24" step="0.5" placeholder="0-24; görüntü karanlıksa artırın">
+      <label for="kKare" class="t-hik">Kare hızı (kare/sn)</label><input id="kKare" class="t-hik" type="number" min="0" max="300" step="1" placeholder="0 = kameranın en yüksek hızı">
+      <label for="kPort" class="t-okuyucu">TCP port</label><input id="kPort" class="t-okuyucu" type="number" min="1" max="65535" placeholder="okuyucunun kod gönderdiği port">
+      <label for="kNoRead" class="t-okuyucu">Okunamadı metni</label><input id="kNoRead" class="t-okuyucu" maxlength="40" placeholder="ör. NoRead (okuyucu okuyamayınca gönderdiği metin, isteğe bağlı)">
+      <label for="kKul" class="t-kamera">Kamera kullanıcı adı</label><input id="kKul" class="t-kamera" placeholder="isteğe bağlı" autocomplete="off">
+      <label for="kSifre" class="t-kamera">Kamera şifresi</label><input id="kSifre" class="t-kamera" type="password" placeholder="isteğe bağlı" autocomplete="new-password">
+    </form>
+    <div class="row" id="kButonlar">
+      <button id="kKaydet" class="primary">Kaydet</button>
+      <button id="kTest" class="t-test">Görüntüyü test et</button>
+      <button id="kVazgec" style="display:none">Vazgeç</button>
+    </div>
+    <div class="mesaj" id="kMesaj"></div>
+    <p class="hint">En kolayı sadece IP yazmak (ör. <code>192.168.1.152</code>): yaygın görüntü adresleri sırayla denenir. Tam görüntü linki de yazılabilir (ör. <code>http://192.168.1.152/cgi-bin/mjpg/video.cgi</code>); kameranın web sayfası adresi görüntü vermez. Kamera kullanıcı adı ve şifresini linke değil alttaki kutulara yazın.<br>
+    <b>Hikrobot kamera:</b> bilgisayarda Hikrobot MVS kurulu olmalı; MVS programı kameraya bağlıyken bu program kamerayı açamaz. Hızlı bantta bulanıklığı önlemek için pozlamayı kısa tutun (100-500 µs) ve ortamı iyi aydınlatın.<br>
+    <b>Barkod okuyucu:</b> okuyucuyu "TCP sunucu" modunda kodu metin olarak gönderecek şekilde ayarlayın; uygulama IP ve porta bağlanıp gelen her satırı bir kod sayar.<br>
+    Hızlı canlı görüntü için RTSP önerilir (ffmpeg gerekir): Hikvision <code>rtsp://IP:554/Streaming/Channels/101</code>, Dahua <code>rtsp://IP:554/cam/realmonitor?channel=1&amp;subtype=0</code>. RTSP için bilgisayarda ffmpeg kurulu olmalıdır. Düzenlerken şifre boş bırakılırsa eski şifre korunur.</p>
+    <img id="onizleme" alt="Kamera önizleme">
+  </div>
+  <div class="sekme" id="sHesap" hidden>
+    <div class="uyari" id="ilkGirisUyari" hidden>İlk giriş: güvenlik için varsayılan şifreyi (admin) değiştirin.</div>
+    <form id="hesapForm" class="grid2" autocomplete="off">
+      <label for="hEski">Mevcut şifre</label><input id="hEski" type="password" autocomplete="current-password" required>
+      <label for="hAd">Yeni kullanıcı adı</label><input id="hAd" placeholder="boş = değişmez" autocomplete="username">
+      <label for="hYeni">Yeni şifre</label><input id="hYeni" type="password" placeholder="en az 6 karakter, boş = değişmez" autocomplete="new-password">
+      <label for="hYeni2">Yeni şifre (tekrar)</label><input id="hYeni2" type="password" autocomplete="new-password">
+    </form>
+    <div class="row"><button id="hKaydet" class="primary">Değiştir</button></div>
+    <div class="mesaj" id="hMesaj"></div>
+  </div>
+</dialog>
+<main class="duzen">
+  <aside class="sol">
+    <div class="panel-bas">Parametreler</div>
+    <details class="bolum" open>
+      <summary>Doğrulama</summary>
+      <div class="alan">
+        <label for="cfgMode">Doğrulama yöntemi</label>
+        <select id="cfgMode">
+          <option value="seq">Sıra kontrolü (önceki kod + adım)</option>
+          <option value="regex">Kural (desen)</option>
+          <option value="list">Geçerli kod listesi</option>
+          <option value="api">Sistem API (HTTP)</option>
+          <option value="yok">Sadece oku ve listele (kontrol yok, alarm yok)</option>
+        </select>
+        <label for="cfgNext">Sıradaki beklenen kod</label><input id="cfgNext" placeholder="boş = ilk okunan kod sırayı başlatır">
+        <label for="cfgStep">Sıra adımı</label><input id="cfgStep" type="number" step="1">
+        <label for="cfgRegex">Desen (regex)</label><input id="cfgRegex">
+        <label for="cfgList">Geçerli kodlar</label><textarea id="cfgList" rows="3" placeholder="Her satıra bir kod"></textarea>
+        <label for="cfgApi">Doğrulama API adresi</label><input id="cfgApi" placeholder="http://sunucu/kontrol?kod={code}">
+      </div>
+    </details>
+    <details class="bolum" open>
+      <summary>Kod okuma</summary>
+      <div class="alan">
+        <label for="cfgFormats">Okunacak kodlar</label><select id="cfgFormats"><option value="all">Tüm barkodlar (QR, EAN, Code128, DataMatrix…)</option><option value="qr">Sadece QR (daha hızlı)</option></select>
+        <label for="cfgMirror">Aynalı (ters baskı) kodlar</label><select id="cfgMirror"><option value="auto">Otomatik (normal ve aynalı dene)</option><option value="0">Sadece normal</option><option value="1">Sadece aynalı</option></select>
+        <label for="cfgDedup">Aynı kodu tekrar sayma (sn)</label><input id="cfgDedup" type="number" min="0.2" step="0.1">
+      </div>
+    </details>
+    <details class="bolum">
+      <summary>Alarm, bant ve etiket</summary>
+      <div class="alan">
+        <label for="cfgAlarm">YANLIŞ alarmı</label><select id="cfgAlarm"><option value="siren">Siren (3 sn)</option><option value="surekli">Susturulana kadar çal</option><option value="kisa">Kısa bip</option></select>
+        <label for="cfgStop">Bant durdu sayılması (sn)</label><input id="cfgStop" type="number" min="1" step="0.5">
+        <label for="cfgAutoPrint">Durunca otomatik yazdır</label><select id="cfgAutoPrint"><option value="0">Hayır</option><option value="1">Evet</option></select>
+        <label for="cfgSound">Sesli uyarı</label><select id="cfgSound"><option value="1">Açık</option><option value="0">Kapalı</option></select>
+      </div>
+    </details>
+    <details class="bolum">
+      <summary>Kayıt</summary>
+      <div class="alan">
+        <label for="cfgPost">Kayıt (POST) adresi</label><input id="cfgPost" placeholder="boş = sadece bu bilgisayara kaydet">
+      </div>
+    </details>
+    <details class="bolum">
+      <summary>Yardım</summary>
+      <div class="alan hint">
+        <p>Sıra kontrolü: koddaki son sayı bir önceki doğru koddan "adım" kadar büyük olmalı (ör. PSK-000123 → PSK-000124), ön ve son ek aynı kalmalı. Farklı gelen kod YANLIŞ olur, sıra son doğru koddan devam eder. Bir poşet gerçekten eksikse "Sırayı son koddan devam ettir" ile yeni koddan devam edilir.</p>
+        <p>Kameralar ve barkod okuyucular üstteki <b>Kurulum</b> düğmesinden eklenir; kamera adresle de açılabilir: <code>?kamera=ad veya IP</code>.</p>
+        <p>API yanıtı: HTTP 200 ve JSON içinde <code>valid/gecerli/ok</code> alanı true ise DOĞRU sayılır; alan yoksa 200 = DOĞRU, diğer durumlar YANLIŞ. Kayıt adresine her okuma <code>{code, valid, time}</code> JSON olarak POST edilir.</p>
+      </div>
+    </details>
+    <div class="sol-alt"><button id="saveCfg" class="primary">Parametreleri kaydet</button></div>
+  </aside>
+
+  <section class="orta">
+    <div class="kart">
+      <div class="video-wrap">
+        <video id="video" playsinline muted></video>
+        <img id="ipimg" alt="" style="display:none;width:100%;height:100%;object-fit:contain">
+        <div id="okuyucuPanel"><div id="okuyucuDurum">Okuyucu</div><div id="okuyucuSon"></div></div>
+        <div id="flash"></div>
+        <div id="fps"></div>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <input id="manual" placeholder="Elle kod / USB okuyucu (Enter)" style="flex:1;min-width:200px">
+        <button id="stopTest">Bant durdu (elle)</button>
+      </div>
+    </div>
+    <div class="istat">
+      <div><span>Toplam</span><b id="cTotal">0</b></div>
+      <div><span>Doğru</span><b id="cOk" class="ok">0</b></div>
+      <div><span>Yanlış</span><b id="cBad" class="bad">0</b></div>
+    </div>
+  </section>
+
+  <aside class="sag">
+    <div class="bilgi" id="bilgi">Okuma bekleniyor.</div>
+    <div id="stopPanel">
+      <h2>BANT DURDU · SON BARKOD</h2>
+      <div id="stopCode"></div>
+      <div id="stopStatus" style="font-size:24px;font-weight:900"></div>
+    </div>
+    <div class="kart" id="printArea">
+      <div class="baslik-kucuk">Son okunan</div>
+      <div id="last">—</div>
+      <div id="lastStatus"></div>
+      <div id="seqBox">Beklenen sonraki kod: <b id="expected">—</b>
+        <div class="row" style="margin-top:6px"><button id="seqFromLast">Sırayı son koddan devam ettir</button></div></div>
+      <div class="row" id="labelHolder" style="margin-top:10px"><div id="label" style="display:none"><div class="q" id="labelQr"></div><div class="t"><div class="code" id="labelCode"></div><div class="st" id="labelSt"></div><div class="dt" id="labelDt"></div></div></div></div>
+      <div class="row" style="margin-top:10px"><label class="hint" for="bAdet">Adet</label><input id="bAdet" type="number" min="1" max="9999" value="1"><button id="zebraBtn" class="primary">🖨 Etiket bas</button></div>
+      <div class="mesaj" id="bMesaj" style="margin-top:4px"></div>
+      <div class="row" style="margin-top:6px"><button id="printBtn" title="Zebra yerine bu bilgisayarın varsayılan yazıcısından">Tarayıcıdan yazdır</button><button id="csvBtn">Kayıtlar / Excel</button><button id="clearBtn" title="Ekrandaki listeyi ve sayaçları sıfırlar; kalıcı kayıtlar silinmez">Ekranı temizle</button></div>
+    </div>
+    <div class="logbox"><table><thead><tr><th>#</th><th>İçerik</th><th>Tip</th><th>Durum</th><th>Saat</th></tr></thead><tbody id="log"></tbody></table></div>
+  </aside>
+</main>
+<div id="alarm" role="alertdialog" aria-live="assertive">
+  <div class="alarm-kutu">
+    <div class="alarm-baslik" id="alarmBaslik">YANLIŞ</div>
+    <div class="alarm-kod" id="alarmKod"></div>
+    <div class="alarm-neden" id="alarmNeden"></div>
+    <button id="alarmSustur">ALARMI SUSTUR <small>(Boşluk / Enter)</small></button>
+  </div>
+</div>
+<dialog id="kayitlar">
+  <div class="dlg-bas"><h2>Okuma kayıtları</h2><button id="kayitlarKapat" title="Kapat">✕</button></div>
+  <div class="sekme">
+    <div class="row">
+      <label>Başlangıç <input id="kBas" type="date"></label>
+      <label>Bitiş <input id="kBit" type="date"></label>
+      <label>Durum <select id="kDurum"><option value="">Tümü</option><option>DOĞRU</option><option>YANLIŞ</option><option>OKUNAMADI</option><option>BAĞLANTI YOK</option></select></label>
+      <label>Kod <input id="kAra" placeholder="ara…" style="width:140px"></label>
+      <button id="kListele" class="primary">Listele</button>
+      <button id="kExcel">Excel'e aktar (CSV)</button>
+    </div>
+    <div class="bilgi" id="kOzet" style="margin-top:12px">—</div>
+    <div class="logbox" style="max-height:calc(100vh - 300px);margin-top:12px"><table><thead><tr><th>#</th><th>Zaman</th><th>Kod</th><th>Tip</th><th>Durum</th><th>Açıklama</th><th>Kaynak</th></tr></thead><tbody id="kTablo"></tbody></table></div>
+  </div>
+</dialog>
+<div id="printLabel"></div>
+<script src="vendor/jsQR.js"></script>
+<script src="vendor/qrcode.js"></script>
+<script src="vendor/zxing.min.js"></script>
+<script>
+(() => {
+const $ = id => document.getElementById(id);
+const DEF = {mode:'seq', next:'', step:1, regex:'^.{4,}$', list:'', api:'', post:'', stop:3, dedup:1.5, autoPrint:'0', sound:'1', formats:'all', mirror:'auto', alarm:'siren', cam:'', surum:2};
+let cfg = {...DEF};
+try { Object.assign(cfg, JSON.parse(localStorage.getItem('bantqr.cfg') || '{}')); } catch {}
+// Eski ayarlarda aynalama "0" kayıtlıydı; ters baskı kodlar için otomatiğe geçir
+if (!cfg.surum || cfg.surum < 2) { cfg.mirror = 'auto'; cfg.alarm = cfg.alarm || 'siren'; cfg.surum = 2; }
+let log = [];
+try { log = JSON.parse(localStorage.getItem('bantqr.log') || '[]'); } catch {}
+
+const fields = {mode:'cfgMode', next:'cfgNext', step:'cfgStep', regex:'cfgRegex', list:'cfgList', api:'cfgApi', post:'cfgPost', stop:'cfgStop', dedup:'cfgDedup', autoPrint:'cfgAutoPrint', sound:'cfgSound', formats:'cfgFormats', mirror:'cfgMirror', alarm:'cfgAlarm'};
+for (const [k, id] of Object.entries(fields)) $(id).value = cfg[k];
+$('saveCfg').onclick = () => {
+  for (const [k, id] of Object.entries(fields)) cfg[k] = $(id).value;
+  cfg.stop = +cfg.stop || DEF.stop; cfg.dedup = +cfg.dedup || DEF.dedup; cfg.step = Math.trunc(+cfg.step) || 1;
+  saveCfg(); showExpected(); applyMirror();
+  detector = null; if (running) startDetector();
+  setState(running ? 'run' : 'idle');
+};
+
+function saveCfg() { try { localStorage.setItem('bantqr.cfg', JSON.stringify(cfg)); } catch {} }
+
+// ---- sıra kontrolü ----
+// Koddaki son sayı grubunu adım kadar artırır: PSK-000123 -> PSK-000124 (baştaki sıfırlar korunur)
+function nextOf(code) {
+  const m = /^(.*?)(\d+)(\D*)$/.exec(code);
+  if (!m) return null;
+  const n = BigInt(m[2]) + BigInt(cfg.step);
+  if (n < 0n) return null;
+  return m[1] + n.toString().padStart(m[2].length, '0') + m[3];
+}
+function setNext(code) { cfg.next = code || ''; $('cfgNext').value = cfg.next; saveCfg(); showExpected(); }
+function showExpected() {
+  $('seqBox').style.display = cfg.mode === 'seq' ? '' : 'none';
+  $('expected').textContent = cfg.next || '— (ilk kod sırayı başlatır)';
+}
+let seqLastOk = null;
+$('seqFromLast').onclick = () => { if (lastEntry) { seqLastOk = lastEntry.code; setNext(nextOf(lastEntry.code)); } };
+
+// ---- ses ----
+let actx;
+function beep(freq, ms) {
+  if (cfg.sound !== '1') return;
+  try {
+    actx = actx || new AudioContext();
+    const o = actx.createOscillator(), g = actx.createGain();
+    o.frequency.value = freq; o.type = 'square'; g.gain.value = 0.15;
+    o.connect(g).connect(actx.destination); o.start(); o.stop(actx.currentTime + ms / 1000);
+  } catch {}
+}
+
+// İki tonlu yüksek siren (sn saniye). Tarayıcı sesi ancak bir tıklamadan sonra açar: sesKilidiAc()
+function siren(sn) {
+  if (cfg.sound !== '1') return;
+  try {
+    actx = actx || new AudioContext(); if (actx.state === 'suspended') actx.resume();
+    const o = actx.createOscillator(), g = actx.createGain(), t0 = actx.currentTime;
+    o.type = 'square'; g.gain.value = 0.9;
+    for (let i = 0; i < sn * 4; i++) o.frequency.setValueAtTime(i % 2 ? 1450 : 950, t0 + i * 0.25);
+    o.connect(g).connect(actx.destination); o.start(); o.stop(t0 + sn);
+  } catch {}
+}
+function sesKilidiAc() { try { actx = actx || new AudioContext(); actx.resume(); } catch {} }
+document.addEventListener('pointerdown', sesKilidiAc, {once: true});
+
+// ---- YANLIŞ alarmı ----
+let alarmTekrar = null, alarmKapatT = null;
+function alarmVer(baslik, kod, neden) {
+  if (cfg.alarm === 'kisa') { beep(300, 500); return; }
+  $('alarmBaslik').textContent = baslik; $('alarmKod').textContent = kod; $('alarmNeden').textContent = neden || '';
+  $('alarm').classList.add('goster');
+  clearInterval(alarmTekrar); clearTimeout(alarmKapatT);
+  siren(cfg.alarm === 'surekli' ? 2 : 3);
+  if (cfg.alarm === 'surekli') alarmTekrar = setInterval(() => siren(2), 2100);
+  else alarmKapatT = setTimeout(alarmSustur, 3000);
+  $('alarmSustur').focus();
+}
+function alarmSustur() {
+  clearInterval(alarmTekrar); clearTimeout(alarmKapatT); alarmTekrar = null;
+  $('alarm').classList.remove('goster');
+  try { if (actx) { actx.close(); actx = null; } } catch {}  // çalan sireni hemen kes
+}
+$('alarmSustur').onclick = alarmSustur;
+document.addEventListener('keydown', ev => {
+  if ($('alarm').classList.contains('goster') && (ev.key === ' ' || ev.key === 'Enter' || ev.key === 'Escape')) { ev.preventDefault(); alarmSustur(); }
+});
+
+// ---- doğrulama ----
+async function validate(code) {
+  if (cfg.mode === 'yok') return true;  // test / sayım: her okuma kabul
+  if (cfg.mode === 'seq') {
+    const ok = !cfg.next ? nextOf(code) !== null : code === cfg.next;
+    if (ok) { seqLastOk = code; setNext(nextOf(code)); }
+    return ok;
+  }
+  if (cfg.mode === 'list') {
+    const set = new Set(cfg.list.split(/\r?\n/).map(s => s.trim()).filter(Boolean));
+    return set.has(code);
+  }
+  if (cfg.mode === 'api') {
+    if (!cfg.api) return false;
+    const url = cfg.api.includes('{code}') ? cfg.api.replace('{code}', encodeURIComponent(code)) : cfg.api + (cfg.api.includes('?') ? '&' : '?') + 'code=' + encodeURIComponent(code);
+    try {
+      const r = await fetch(url, {cache:'no-store'});
+      if (!r.ok) return false;
+      const txt = await r.text();
+      try {
+        const j = JSON.parse(txt);
+        for (const k of ['valid','gecerli','geçerli','ok','success','result']) if (k in j) return j[k] === true || j[k] === 1 || j[k] === 'true';
+      } catch {}
+      return true;
+    } catch (e) { console.warn('API hatası', e); return null; }
+  }
+  try { return new RegExp(cfg.regex).test(code); } catch { return false; }
+}
+function record(entry) {
+  if (!cfg.post) return;
+  fetch(cfg.post, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(entry)}).catch(e => console.warn('Kayıt gönderilemedi', e));
+}
+
+// ---- okuma işleme ----
+let sessionRead = false, lastCode = null, lastSeen = 0, lastNewAt = 0, lastEntry = null, stopped = false, printedFor = null;
+// ZXing / BarcodeDetector biçim adlarını okunur hale getirir: EAN_13 -> EAN-13, qr_code -> QR
+const TIP_ADLARI = {QR_CODE:'QR', DATA_MATRIX:'DataMatrix', PDF_417:'PDF417', AZTEC:'Aztec', MAXICODE:'MaxiCode', CODABAR:'Codabar', ITF:'ITF', RSS_14:'GS1 DataBar', RSS_EXPANDED:'GS1 DataBar Exp.'};
+function tipAdi(t) {
+  if (!t) return '';
+  const u = String(t).toUpperCase();
+  return TIP_ADLARI[u] || u.replace(/^(CODE|EAN|UPC)_?(\w+)$/, (m, a, b) => a === 'CODE' ? 'Code' + b : a + '-' + b).replace(/_/g, ' ');
+}
+// Her kodun son görülme zamanı: görüntüde kalan (ya da aynı anda görünen iki poşetten biri olan)
+// kod her karede tazelenir, böylece tekrar sayılmaz; görüntüden çıkıp sonradan gelirse mükerrer olur.
+const sonGorulme = new Map();
+async function onCode(code, src, tip) {
+  const now = performance.now();
+  const onceki = sonGorulme.get(code);
+  sonGorulme.set(code, now);
+  if (sonGorulme.size > 500) for (const [k, t] of sonGorulme) if (now - t > 60000) sonGorulme.delete(k);
+  if (src !== 'elle' && onceki && now - onceki < cfg.dedup * 1000) { lastSeen = now; return; }
+  // Sıra modunda son doğru kodun yeniden görünmesi (poşet hâlâ önde) yeni okuma sayılmaz
+  if (cfg.mode === 'seq' && code === seqLastOk) { lastCode = code; lastSeen = now; return; }
+  lastCode = code; lastSeen = now; lastNewAt = now; sessionRead = true;
+  if (stopped) resume();
+  const entry = {code, valid: undefined, time: new Date().toISOString(), src,
+    tip: tipAdi(tip) || (src === 'okuyucu' ? 'Okuyucu' : src === 'elle' ? 'Elle' : '')};
+  lastEntry = entry;
+  log.unshift(entry); if (log.length > 5000) log.length = 5000;
+  render(entry, true);
+  const beklenen = cfg.mode === 'seq' ? cfg.next : '';
+  // Mükerrer: aynı kod daha önce DOĞRU okunmuş (ekrandaki listede ya da kalıcı kayıtlarda)
+  let mukerrer = cfg.mode !== 'yok' && log.some(e => e !== entry && e.code === code && e.valid === true);
+  if (!mukerrer && cfg.mode !== 'yok') { try { mukerrer = (await (await api('/api/okuma/var?kod=' + encodeURIComponent(code))).json()).dogru > 0; } catch {} }
+  entry.valid = mukerrer ? false : await validate(code);
+  entry.neden = entry.valid === true ? '' : mukerrer ? 'Mükerrer: bu kod daha önce okundu'
+    : entry.valid === null ? 'Doğrulama sistemine ulaşılamadı'
+    : cfg.mode === 'seq' ? (beklenen ? 'Sıra dışı · beklenen: ' + beklenen : 'Kodda sıra numarası yok')
+    : cfg.mode === 'regex' ? 'Kurala uymuyor' : cfg.mode === 'list' ? 'Geçerli kod listesinde yok' : 'Sistem reddetti';
+  render(entry, false);
+  flash(entry.valid);
+  if (entry.valid !== true) alarmVer(entry.valid === null ? 'BAĞLANTI YOK' : 'YANLIŞ', code, entry.neden);
+  persist(); record(entry); arsivle(entry);
+}
+// Okuyucu poşeti gördü ama kodu çözemedi: kayda YANLIŞ olarak düşer, sıra değişmez
+function okunamadi(src) {
+  lastNewAt = performance.now(); sessionRead = true; lastCode = null;
+  if (stopped) resume();
+  const entry = {code: '(okunamadı)', valid: false, time: new Date().toISOString(), src, okunamadi: true,
+    tip: src === 'okuyucu' ? 'Okuyucu' : '', neden: 'Okuyucu kodu çözemedi'};
+  lastEntry = entry;
+  log.unshift(entry); if (log.length > 5000) log.length = 5000;
+  render(entry, false);
+  const f = $('flash'); f.className = 'bad'; f.textContent = 'OKUNAMADI';
+  clearTimeout(flashT); flashT = setTimeout(() => { f.className = ''; }, 1200);
+  alarmVer('OKUNAMADI', '', entry.neden);
+  persist(); record(entry); arsivle(entry);
+}
+// Kalıcı kayıt tablosuna (sunucudaki veritabanı) yaz
+function arsivle(e) {
+  const durum = e.okunamadi ? 'OKUNAMADI' : e.valid === true ? 'DOĞRU' : e.valid === null ? 'BAĞLANTI YOK' : 'YANLIŞ';
+  const kaynak = ($('camSel').selectedOptions[0] || {}).text || '';
+  api('/api/okuma', {kod: e.code, tip: e.tip || '', durum, aciklama: e.neden || '', kaynak}).catch(err => console.warn('Kayıt yazılamadı', err));
+}
+function statusText(v) { return v === true ? 'DOĞRU' : v === false ? 'YANLIŞ' : v === null ? 'SİSTEME ULAŞILAMADI' : '...'; }
+function render(entry, pending) {
+  if (entry === lastEntry) {
+    $('last').textContent = entry.code;
+    $('lastStatus').textContent = pending ? 'kontrol ediliyor…' : statusText(entry.valid);
+    $('lastStatus').className = pending ? '' : entry.valid === true ? 'ok' : 'bad';
+  }
+  drawLog();
+}
+function drawLog() {
+  const ok = log.filter(e => e.valid === true).length;
+  $('cTotal').textContent = log.length; $('cOk').textContent = ok; $('cBad').textContent = log.length - ok;
+  $('log').innerHTML = log.slice(0, 200).map((e, i) =>
+    `<tr><td class="no">${log.length - i}</td><td class="kod">${esc(e.code)}</td><td>${e.tip ? '<span class="tip">' + esc(e.tip) + '</span>' : ''}</td>`
+    + `<td class="${e.valid === true ? 'ok' : 'bad'}">${e.okunamadi ? 'OKUNAMADI' : statusText(e.valid)}${e.neden ? '<div class="neden">' + esc(e.neden) + '</div>' : ''}</td>`
+    + `<td>${new Date(e.time).toLocaleTimeString('tr-TR')}</td></tr>`).join('');
+  $('bilgi').textContent = log.length ? `${log.length} kod okundu · ${ok} doğru · ${log.length - ok} yanlış.` : 'Okuma bekleniyor.';
+}
+const esc = s => s.replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+let flashT;
+function flash(valid) {
+  const f = $('flash');
+  f.className = valid === true ? 'ok' : 'bad';
+  f.textContent = valid === true ? '' : valid === null ? 'BAĞLANTI YOK' : 'YANLIŞ';
+  if (valid === true) beep(1200, 60);  // yanlışta sesi alarmVer verir
+  clearTimeout(flashT); flashT = setTimeout(() => { f.className = ''; }, valid === true ? 200 : 1200);
+}
+function persist() { try { localStorage.setItem('bantqr.log', JSON.stringify(log)); } catch {} }
+
+// ---- bant durdu ----
+function checkStop() {
+  if (stopped || !sessionRead || !lastEntry || lastEntry.valid === undefined) return;
+  const now = performance.now();
+  // Ya hiç yeni kod gelmiyor, ya da aynı poşet kameranın önünde bekliyor
+  if (now - lastNewAt >= cfg.stop * 1000) beltStopped();
+}
+function beltStopped() {
+  if (!lastEntry) return;
+  stopped = true; setState('stop');
+  $('stopPanel').classList.add('show');
+  $('stopCode').textContent = lastEntry.code;
+  $('stopStatus').textContent = statusText(lastEntry.valid);
+  $('stopStatus').className = lastEntry.valid === true ? 'ok' : 'bad';
+  buildLabel(lastEntry);
+  if (cfg.autoPrint === '1' && printedFor !== lastEntry && !lastEntry.okunamadi) {
+    printedFor = lastEntry;
+    if (yaziciHazir()) zebraBas(lastEntry, +yazici.adet || 1); else setTimeout(() => window.print(), 300);
+  }
+}
+function resume() {
+  stopped = false; setState(running ? 'run' : 'idle');
+  $('stopPanel').classList.remove('show');
+}
+function buildLabel(e) {
+  $('label').style.display = 'flex';
+  $('labelCode').textContent = e.code;
+  $('labelSt').textContent = statusText(e.valid);
+  $('labelDt').textContent = new Date(e.time).toLocaleString('tr-TR');
+  try { const q = qrcode(0, 'M'); q.addData(e.code); q.make(); $('labelQr').innerHTML = q.createSvgTag({cellSize: 4, margin: 0, scalable: true}); } catch { $('labelQr').innerHTML = ''; }
+  $('printLabel').innerHTML = $('labelHolder').innerHTML;
+}
+$('stopTest').onclick = () => { if (lastEntry) beltStopped(); };
+$('printBtn').onclick = () => { if (lastEntry) { buildLabel(lastEntry); window.print(); } };
+$('manual').addEventListener('keydown', ev => { if (ev.key === 'Enter' && ev.target.value.trim()) { onCode(ev.target.value.trim(), 'elle'); ev.target.value = ''; } });
+// ---- Zebra etiket yazıcı ----
+let yazici = {};
+const yaziciHazir = () => yazici.baglanti === 'windows' ? !!yazici.windows_ad : !!yazici.ip;
+async function zebraBas(e, adet) {
+  if (!yaziciHazir()) { mesaj('bMesaj', 'Önce Kurulum → Etiket yazıcı bölümünden yazıcıyı ayarlayın.', 'hata'); return false; }
+  mesaj('bMesaj', `${adet} adet etiket gönderiliyor…`);
+  const r = await api('/api/yazdir', {kod: e.code, durum: e.okunamadi ? 'OKUNAMADI' : statusText(e.valid), adet});
+  if (!r.ok) { mesaj('bMesaj', await hataMetni(r), 'hata'); return false; }
+  const j = await r.json();
+  mesaj('bMesaj', `${j.adet} adet etiket yazıcıya gönderildi (${j.yazici}).`, 'basari');
+  return true;
+}
+$('zebraBtn').onclick = () => {
+  if (!lastEntry || lastEntry.okunamadi) return mesaj('bMesaj', 'Basılacak okunmuş kod yok.', 'hata');
+  const adet = Math.trunc(+$('bAdet').value);
+  if (!(adet >= 1 && adet <= 9999)) return mesaj('bMesaj', 'Adet 1-9999 arasında olmalı.', 'hata');
+  if (adet > 20 && !confirm(`"${lastEntry.code}" için ${adet} adet etiket basılsın mı?`)) return;
+  buildLabel(lastEntry); zebraBas(lastEntry, adet);
+};
+function yaziciFormDoldur() {
+  $('yBag').value = yazici.baglanti || 'ag'; $('yIp').value = yazici.ip || ''; $('yPort').value = yazici.port || 9100;
+  $('yDpi').value = String(yazici.dpi || 203); $('yGen').value = yazici.genislik_mm || 100; $('yYuk').value = yazici.yukseklik_mm || 50;
+  $('yAdet').value = yazici.adet || 1; $('ySablon').value = yazici.sablon || '';
+  $('yaziciForm').classList.toggle('windows', $('yBag').value === 'windows');
+}
+async function yaziciYukle() {
+  try { yazici = await (await api('/api/yazici')).json(); } catch { yazici = {}; }
+  $('bAdet').value = yazici.adet || 1;
+  yaziciFormDoldur();
+  const adlar = await (await api('/api/yazicilar')).json().catch(() => []);
+  $('yWin').innerHTML = '<option value="">— seçin —</option>' + adlar.map(a => `<option>${esc(a)}</option>`).join('');
+  if (yazici.windows_ad) $('yWin').value = yazici.windows_ad;
+}
+$('yBag').onchange = () => $('yaziciForm').classList.toggle('windows', $('yBag').value === 'windows');
+async function yaziciKaydet() {
+  const r = await api('/api/yazici', {baglanti: $('yBag').value, ip: $('yIp').value.trim(), port: $('yPort').value, windows_ad: $('yWin').value,
+    dpi: $('yDpi').value, genislik_mm: $('yGen').value, yukseklik_mm: $('yYuk').value, adet: $('yAdet').value, sablon: $('ySablon').value});
+  if (!r.ok) { mesaj('yMesaj', await hataMetni(r), 'hata'); return false; }
+  yazici = await r.json(); $('bAdet').value = yazici.adet;
+  mesaj('yMesaj', 'Yazıcı ayarları kaydedildi.', 'basari');
+  return true;
+}
+$('yKaydet').onclick = yaziciKaydet;
+$('yTest').onclick = async () => {
+  if (!(await yaziciKaydet())) return;
+  const r = await api('/api/yazdir', {kod: 'TEST-' + new Date().toLocaleTimeString('tr-TR').replace(/:/g, ''), durum: 'TEST ETİKETİ', adet: 1});
+  mesaj('yMesaj', r.ok ? 'Test etiketi yazıcıya gönderildi.' : await hataMetni(r), r.ok ? 'basari' : 'hata');
+};
+
+// ---- kalıcı kayıtlar penceresi ----
+const bugun = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 10); };
+function kayitSorgu() {
+  return new URLSearchParams({bas: $('kBas').value, bit: $('kBit').value, durum: $('kDurum').value, ara: $('kAra').value.trim()}).toString();
+}
+async function kayitListele() {
+  $('kOzet').textContent = 'Yükleniyor…';
+  const r = await api('/api/okumalar?' + kayitSorgu());
+  if (!r.ok) { $('kOzet').textContent = await hataMetni(r); return; }
+  const {kayitlar, ozet} = await r.json();
+  $('kOzet').textContent = `${ozet.toplam} kayıt · ${ozet.dogru} doğru · ${ozet.yanlis} yanlış/okunamadı` + (kayitlar.length < ozet.toplam ? ` (son ${kayitlar.length} tanesi gösteriliyor, tamamı için Excel'e aktarın)` : '');
+  $('kTablo').innerHTML = kayitlar.map(k => `<tr><td class="no">${k.id}</td><td>${esc(k.zaman.slice(0, 19))}</td><td class="kod">${esc(k.kod)}</td>`
+    + `<td>${k.tip ? '<span class="tip">' + esc(k.tip) + '</span>' : ''}</td><td class="${k.durum === 'DOĞRU' ? 'ok' : 'bad'}">${esc(k.durum)}</td>`
+    + `<td>${esc(k.aciklama || '')}</td><td>${esc(k.kaynak || '')}</td></tr>`).join('') || '<tr><td colspan="7" class="hint">Kayıt yok.</td></tr>';
+}
+function kayitlarAc() { if (!$('kBas').value) { $('kBas').value = $('kBit').value = bugun(); } $('kayitlar').showModal(); kayitListele(); }
+$('kayitlarBtn').onclick = kayitlarAc; $('csvBtn').onclick = kayitlarAc;
+$('kListele').onclick = kayitListele;
+$('kAra').addEventListener('keydown', ev => { if (ev.key === 'Enter') kayitListele(); });
+$('kExcel').onclick = () => { location.href = '/api/okumalar.csv?' + kayitSorgu(); };
+$('kayitlarKapat').onclick = () => $('kayitlar').close();
+$('clearBtn').onclick = () => { if (confirm('Ekrandaki liste ve sayaçlar sıfırlansın mı? (Kalıcı kayıtlar silinmez.)')) { log = []; persist(); drawLog(); } };
+
+// ---- kamera ----
+const video = $('video');
+let running = false, stream = null, detector = null;
+function setState(s) {
+  const el = $('state');
+  el.className = 'pill ' + (s === 'run' ? 'run' : s === 'stop' ? 'stop' : '');
+  el.textContent = s === 'run' ? 'Okuyor' : s === 'stop' ? 'Bant durdu' : 'Kamera kapalı';
+}
+const ipimg = $('ipimg');
+let src = video;
+let ipCams = [];  // Kurulumda kayıtlı IP kameralar
+// Kamera dışarıdan da verilebilir: /?kamera=192.168.1.152 veya /?kamera=Hat 1
+const qsCam = new URLSearchParams(location.search).get('kamera');
+async function listCams() {
+  let devs = [];
+  try { devs = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === 'videoinput' && d.deviceId); } catch {}
+  const cur = $('camSel').value || cfg.cam;
+  let opts = ipCams.map(k => k.tur === 'okuyucu'
+    ? `<option value="okuyucu:${esc(k.id)}">${esc(k.ad)} (okuyucu ${esc(k.adres)}:${k.port})</option>`
+    : `<option value="ipcam:${esc(k.id)}">${esc(k.ad)} (${k.tur === 'hikrobot' ? 'Hikrobot ' + esc(k.adres || 'USB') : esc(k.adres)})</option>`).join('');
+  if (qsCam && !ipCams.some(k => k.ad === qsCam || k.adres === qsCam)) opts += `<option value="ipurl">${esc(qsCam)}</option>`;
+  opts += devs.map((d, i) => `<option value="${esc(d.deviceId)}">${esc(d.label || 'USB kamera ' + (i + 1))}</option>`).join('');
+  if (!devs.length) opts += '<option value="">Bilgisayar kamerası</option>';
+  $('camSel').innerHTML = opts;
+  if (cur && [...$('camSel').options].some(o => o.value === cur)) $('camSel').value = cur;
+}
+async function loadIpCams() {
+  const r = await api('/api/kameralar');
+  if (r.ok) ipCams = await r.json();
+  await listCams();
+}
+async function startDetector() {
+  if (detector || !('BarcodeDetector' in window)) return;
+  try {
+    const sup = await BarcodeDetector.getSupportedFormats();
+    if (sup.includes('qr_code')) detector = new BarcodeDetector({formats: cfg.formats === 'qr' ? ['qr_code'] : sup});
+  } catch {}
+}
+// Barkod okuyucu: kodu cihaz çözer, sunucu /okuyucu üzerinden olay olarak iletir
+let okuyucuAkis = null;
+function okuyucuKapat() { if (okuyucuAkis) { okuyucuAkis.close(); okuyucuAkis = null; } $('okuyucuPanel').classList.remove('goster'); }
+function startOkuyucu(kid) {
+  const k = ipCams.find(x => x.id === kid); if (!k) return;
+  video.style.display = 'none'; ipimg.style.display = 'none'; src = null;
+  $('okuyucuPanel').classList.add('goster'); $('okuyucuSon').textContent = '';
+  const durum = d => {
+    const el = $('okuyucuDurum');
+    el.className = d === 'bagli' ? 'bagli' : d === 'kopuk' ? 'kopuk' : '';
+    el.textContent = (d === 'bagli' ? 'Okuyucuya bağlı' : d === 'kopuk' ? 'Okuyucuya bağlanılamadı, tekrar deneniyor…' : 'Okuyucuya bağlanılıyor…') + ` · ${k.adres}:${k.port}`;
+  };
+  durum('baglaniyor');
+  okuyucuAkis = new EventSource('/okuyucu?id=' + encodeURIComponent(kid));
+  okuyucuAkis.addEventListener('durum', ev => durum(JSON.parse(ev.data)));
+  okuyucuAkis.addEventListener('kod', ev => {
+    const kod = JSON.parse(ev.data);
+    $('okuyucuSon').textContent = kod;
+    if (k.okunamadi && kod.toLowerCase() === k.okunamadi.toLowerCase()) okunamadi('okuyucu');
+    else onCode(kod, 'okuyucu');
+  });
+  okuyucuAkis.onerror = () => durum('kopuk');  // EventSource kendisi yeniden bağlanır
+  running = true; setState('run'); $('startBtn').textContent = '↻ Yeniden bağlan';
+  $('fps').textContent = 'Barkod okuyucu';
+}
+function startIp(path) {
+  video.style.display = 'none'; ipimg.style.display = '';
+  src = ipimg;
+  ipimg.onerror = () => { $('fps').textContent = 'Kameraya bağlanılamadı, tekrar deneniyor…'; setTimeout(() => { if (src === ipimg && running) ipimg.src = path + '&t=' + Date.now(); }, 2000); };
+  ipimg.src = path + '&t=' + Date.now();
+  running = true; setState('run'); $('startBtn').textContent = '↻ Yeniden başlat';
+  startDetector(); if (!looping) loop();
+}
+async function start() {
+  if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+  ipimg.onerror = null; ipimg.removeAttribute('src');
+  okuyucuKapat();
+  const id = $('camSel').value;
+  if (id.startsWith('okuyucu:')) { cfg.cam = id; saveCfg(); return startOkuyucu(id.slice(8)); }
+  if (id.startsWith('ipcam:')) { cfg.cam = id; saveCfg(); return startIp('/kamera?id=' + encodeURIComponent(id.slice(6))); }
+  if (id === 'ipurl') return startIp('/kamera?url=' + encodeURIComponent(qsCam));
+  video.style.display = ''; ipimg.style.display = 'none'; src = video;
+  cfg.cam = id; saveCfg();
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({audio:false, video:{
+      deviceId: id ? {exact:id} : undefined, facingMode: id ? undefined : 'environment',
+      width:{ideal:1280}, height:{ideal:720}, frameRate:{ideal:60}}});
+  } catch (e) { alert('Kamera açılamadı: ' + e.message); return; }
+  video.srcObject = stream; await video.play();
+  await listCams();
+  await startDetector();
+  running = true; setState('run'); $('startBtn').textContent = '↻ Yeniden başlat';
+  if (!looping) loop();
+}
+$('startBtn').onclick = start;
+$('camSel').onchange = () => { if (running) start(); };
+
+// ---- oturum ve kurulum ----
+// Oturum düşerse (sunucu yeniden başladı, süre doldu) giriş ekranına dön
+async function api(url, body) {
+  const r = await fetch(url, body === undefined ? {cache:'no-store'} :
+    {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)});
+  if (r.status === 401 && url !== '/api/hesap') { location.href = '/giris.html'; throw new Error('oturum yok'); }
+  return r;
+}
+async function hataMetni(r) { try { return (await r.json()).hata || 'İşlem yapılamadı'; } catch { return 'İşlem yapılamadı'; } }
+function mesaj(el, metin, tur) { $(el).textContent = metin; $(el).className = 'mesaj ' + (tur || ''); }
+
+const dlg = $('kurulum');
+let ilkGiris = false;
+function sekmeAc(id) {
+  for (const b of document.querySelectorAll('.sekmeler button')) b.classList.toggle('aktif', b.dataset.sekme === id);
+  for (const s of document.querySelectorAll('.sekme')) s.hidden = s.id !== id;
+}
+for (const b of document.querySelectorAll('.sekmeler button')) b.onclick = () => sekmeAc(b.dataset.sekme);
+$('kurulumBtn').onclick = () => { kamFormTemizle(); dlg.showModal(); };
+function kurulumKapat() { if (ilkGiris) { sekmeAc('sHesap'); mesaj('hMesaj', 'Devam etmek için önce şifreyi değiştirin.', 'hata'); return; } onizlemeKapat(); dlg.close(); }
+$('kurulumKapat').onclick = kurulumKapat;
+dlg.addEventListener('cancel', ev => { ev.preventDefault(); kurulumKapat(); });
+$('cikisBtn').onclick = async () => { await api('/api/cikis', {}).catch(() => {}); location.href = '/giris.html'; };
+
+// Kameralar
+let duzenlenen = null;
+function kamListeCiz() {
+  $('kamListe').innerHTML = ipCams.length ? ipCams.map(k =>
+    `<tr><td>${esc(k.ad)}</td><td>${k.tur === 'okuyucu' ? esc(k.adres) + ':' + k.port + ' <span class="hint">(okuyucu)</span>'
+      : k.tur === 'hikrobot' ? 'Hikrobot ' + esc(k.adres || '(ilk kamera)') + ` <span class="hint">(${k.pozlama_us} µs, ${k.kazanc} dB)</span>`
+      : esc(k.adres) + (k.kullanici ? ' <span class="hint">(' + esc(k.kullanici) + ')</span>' : '')}</td>
+     <td><button data-duzenle="${esc(k.id)}">Düzenle</button> <button class="tehlike" data-sil="${esc(k.id)}">Sil</button></td></tr>`).join('')
+    : '<tr><td colspan="3" class="hint">Henüz kamera eklenmedi.</td></tr>';
+}
+function turGoster() {
+  const tur = $('kTur').value, ok = tur === 'okuyucu';
+  for (const t of ['kamera', 'okuyucu', 'hikrobot']) { $('kamForm').classList.toggle(t, t === tur); $('kButonlar').classList.toggle(t, t === tur); }
+  $('kPort').required = ok;
+  $('kAdres').placeholder = ok ? 'ör. 192.168.1.50' : 'ör. 192.168.1.152 veya http://… / rtsp://…';
+  if (ok) onizlemeKapat();
+  if (tur === 'hikrobot') {
+    if (!$('kPoz').value) $('kPoz').value = 500;
+    if (!$('kKazanc').value) $('kKazanc').value = 6;
+    if (!$('kKare').value) $('kKare').value = 0;
+    if (!$('kHik').options.length) hikListele();
+  }
+}
+// Bağlı Hikrobot kameralar (MVS SDK ile)
+async function hikListele(secili) {
+  $('kHik').innerHTML = '<option value="">aranıyor…</option>';
+  let j = {cihazlar: [], hata: ''};
+  try { j = await (await api('/api/hikrobot')).json(); } catch {}
+  const sec = secili !== undefined ? secili : $('kHik').dataset.secili || '';
+  $('kHik').innerHTML = '<option value="">İlk bulunan Hikrobot kamera</option>'
+    + j.cihazlar.map(c => `<option value="${esc(c.seri)}">${esc(c.model)} · ${esc(c.seri)} (${esc(c.baglanti)})</option>`).join('')
+    + (sec && !j.cihazlar.some(c => c.seri === sec) ? `<option value="${esc(sec)}">${esc(sec)} (şu an bağlı değil)</option>` : '');
+  $('kHik').value = sec;
+  if (j.hata) mesaj('kMesaj', 'Hikrobot: ' + j.hata, 'hata');
+  else if (!j.cihazlar.length) mesaj('kMesaj', 'Bağlı Hikrobot kamera bulunamadı. USB kablosunu kontrol edin.', 'hata');
+}
+$('kHikYenile').onclick = () => hikListele();
+$('kTur').onchange = turGoster;
+function kamFormTemizle() {
+  duzenlenen = null; $('kamForm').reset(); $('kHik').dataset.secili = ''; turGoster(); $('kamFormBaslik').textContent = 'Kamera / okuyucu ekle';
+  $('kSifre').placeholder = 'isteğe bağlı'; $('kVazgec').style.display = 'none'; mesaj('kMesaj', ''); onizlemeKapat();
+  kamListeCiz();
+}
+$('kamListe').onclick = async ev => {
+  const d = ev.target.dataset;
+  if (d.duzenle) {
+    const k = ipCams.find(x => x.id === d.duzenle); if (!k) return;
+    duzenlenen = k.id; $('kamFormBaslik').textContent = 'Kamerayı düzenle: ' + k.ad;
+    $('kTur').value = k.tur || 'kamera'; turGoster();
+    $('kAd').value = k.ad; $('kAdres').value = k.adres; $('kKul').value = k.kullanici; $('kSifre').value = '';
+    $('kPort').value = k.port || ''; $('kNoRead').value = k.okunamadi || '';
+    if (k.tur === 'hikrobot') {
+      $('kPoz').value = k.pozlama_us; $('kKazanc').value = k.kazanc; $('kKare').value = k.kare_hizi;
+      $('kHik').dataset.secili = k.adres; hikListele(k.adres);
+    }
+    $('kSifre').placeholder = k.sifre_var ? 'boş = eski şifre korunur' : 'isteğe bağlı';
+    $('kVazgec').style.display = ''; mesaj('kMesaj', ''); $('kAd').focus();
+  } else if (d.sil) {
+    const k = ipCams.find(x => x.id === d.sil); if (!k || !confirm(`"${k.ad}" kamerası silinsin mi?`)) return;
+    const r = await api('/api/kameralar/' + encodeURIComponent(k.id) + '/sil', {});
+    if (!r.ok) return mesaj('kMesaj', await hataMetni(r), 'hata');
+    await loadIpCams(); kamFormTemizle(); mesaj('kMesaj', 'Kamera silindi.', 'basari');
+  }
+};
+$('kVazgec').onclick = kamFormTemizle;
+$('kKaydet').onclick = async () => {
+  if (!$('kamForm').reportValidity()) return;
+  const tur = $('kTur').value;
+  if (tur !== 'hikrobot' && !$('kAdres').value.trim()) { $('kAdres').focus(); return mesaj('kMesaj', 'IP adresini yazın.', 'hata'); }
+  const body = {tur, ad: $('kAd').value.trim(), adres: tur === 'hikrobot' ? $('kHik').value : $('kAdres').value.trim(),
+    kullanici: $('kKul').value.trim(), sifre: $('kSifre').value, port: $('kPort').value, okunamadi: $('kNoRead').value.trim(),
+    pozlama_us: $('kPoz').value, kazanc: $('kKazanc').value, kare_hizi: $('kKare').value};
+  const r = await api('/api/kameralar' + (duzenlenen ? '/' + encodeURIComponent(duzenlenen) : ''), body);
+  if (!r.ok) return mesaj('kMesaj', await hataMetni(r), 'hata');
+  const k = await r.json();
+  await loadIpCams(); kamFormTemizle(); mesaj('kMesaj', `"${k.ad}" kaydedildi. Üstteki listeden seçip başlatabilirsiniz.`, 'basari');
+};
+// Kaydetmeden önce görüntüyü dener (kayıtlı kamerada kayıtlı şifreyle, yeni kamerada yazılan adresle)
+function onizlemeKapat() { $('onizleme').removeAttribute('src'); $('onizleme').style.display = 'none'; }
+$('kTest').onclick = () => {
+  const adres = $('kAdres').value.trim();
+  let yol;
+  const kayitli = duzenlenen && ipCams.find(x => x.id === duzenlenen);
+  if ($('kTur').value === 'hikrobot') {
+    yol = '/kamera?' + new URLSearchParams({hik: $('kHik').value, pozlama_us: $('kPoz').value || 500, kazanc: $('kKazanc').value || 0});
+  } else if (!adres) return mesaj('kMesaj', 'Önce IP adresini yazın.', 'hata');
+  else if (kayitli && kayitli.adres === adres && !$('kSifre').value && $('kKul').value.trim() === kayitli.kullanici) yol = '/kamera?id=' + encodeURIComponent(duzenlenen);
+  else {
+    let u = adres; const kul = $('kKul').value.trim();
+    if (kul) u = (adres.includes('://') ? adres : 'http://' + adres).replace('://', '://' + encodeURIComponent(kul) + ':' + encodeURIComponent($('kSifre').value) + '@');
+    yol = '/kamera?url=' + encodeURIComponent(u);
+  }
+  mesaj('kMesaj', 'Kameraya bağlanılıyor… (birkaç saniye sürebilir)');
+  const img = $('onizleme');
+  img.onload = () => mesaj('kMesaj', 'Görüntü alındı ✓', 'basari');
+  img.onerror = async () => {
+    img.style.display = 'none';
+    let neden = 'Adresi, kullanıcı adı ve şifreyi kontrol edin.';
+    if ($('kTur').value === 'hikrobot') {
+      try { const d = (await (await api('/api/hikrobot')).json()).durumlar[$('kHik').value] || ''; neden = d.replace(/^hata: /, '') || 'MVS kurulu mu, kamera bağlı mı kontrol edin.'; } catch {}
+    }
+    mesaj('kMesaj', 'Kameradan görüntü alınamadı. ' + neden, 'hata');
+  };
+  img.style.display = 'block'; img.src = yol + '&t=' + Date.now();
+};
+
+// Hesap
+$('hKaydet').onclick = async () => {
+  if (!$('hesapForm').reportValidity()) return;
+  const yeni = $('hYeni').value, ad = $('hAd').value.trim();
+  if (yeni !== $('hYeni2').value) return mesaj('hMesaj', 'Yeni şifreler aynı değil.', 'hata');
+  if (!yeni && !ad) return mesaj('hMesaj', 'Yeni kullanıcı adı veya yeni şifre yazın.', 'hata');
+  const r = await api('/api/hesap', {eski_sifre: $('hEski').value, yeni_kullanici: ad, yeni_sifre: yeni});
+  if (!r.ok) return mesaj('hMesaj', await hataMetni(r), 'hata');
+  const j = await r.json();
+  $('hesapForm').reset(); $('kimin').textContent = '👤 ' + j.kullanici;
+  if (yeni) { ilkGiris = false; $('ilkGirisUyari').hidden = true; }
+  mesaj('hMesaj', 'Bilgiler güncellendi.', 'basari');
+};
+
+(async () => {
+  const r = await api('/api/ben');
+  const ben = await r.json();
+  $('kimin').textContent = '👤 ' + ben.kullanici;
+  await loadIpCams();
+  yaziciYukle().catch(e => console.warn(e));
+  if (ben.sifre_degismeli) {
+    ilkGiris = true; $('ilkGirisUyari').hidden = false;
+    kamFormTemizle(); sekmeAc('sHesap'); dlg.showModal(); $('hEski').focus();
+    return;
+  }
+  if (qsCam) {
+    const k = ipCams.find(x => x.ad === qsCam || x.adres === qsCam);
+    $('camSel').value = k ? 'ipcam:' + k.id : 'ipurl';
+    start();
+  }
+})().catch(e => console.warn(e));
+
+const cv = document.createElement('canvas'), cx = cv.getContext('2d', {willReadFrequently:true});
+let frames = 0, fpsT = performance.now(), busy = false, looping = false;
+// ZXing: QR, EAN-13/8, UPC, Code128/39/93, ITF, Codabar, DataMatrix, PDF417, Aztec
+let zx = null, zxFor = null;
+function zxReader() {
+  if (typeof ZXing === 'undefined') return null;
+  if (zx && zxFor === cfg.formats) return zx;
+  // TRY_HARDER kullanılmaz: kodsuz karede taramayı ~25 ms'den ~400 ms'ye çıkarıp ekranı kilitliyor
+  const hints = new Map();
+  if (cfg.formats === 'qr') hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [ZXing.BarcodeFormat.QR_CODE]);
+  zx = new ZXing.MultiFormatReader(); zx.setHints(hints); zxFor = cfg.formats;
+  return zx;
+}
+function zxDecode() {
+  const reader = zxReader();
+  if (!reader) return null;
+  try {
+    const bmp = new ZXing.BinaryBitmap(new ZXing.HybridBinarizer(new ZXing.HTMLCanvasElementLuminanceSource(cv)));
+    const r = reader.decodeWithState(bmp);
+    return {text: r.getText(), tip: ZXing.BarcodeFormat[r.getBarcodeFormat()]};
+  } catch { return null; }  // kod bulunamadı
+}
+let aynaSon = false;  // son okunan kod aynalı mıydı
+// Tuvaldeki karede kod arar: [{text, tip}]
+async function kodBul() {
+  if (detector) return (await detector.detect(cv)).filter(b => b.rawValue).map(b => ({text: b.rawValue, tip: b.format}));
+  const z = zxDecode();
+  if (z) return [z];
+  // Yıpranmış QR'lar için ara sıra jsQR ile de dene
+  if (frames % 3 === 0) {
+    const img = cx.getImageData(0, 0, cv.width, cv.height);
+    const r = jsQR(img.data, img.width, img.height, {inversionAttempts:'dontInvert'});
+    if (r && r.data) return [{text: r.data, tip: 'QR_CODE'}];
+  }
+  return [];
+}
+function applyMirror() {
+  // Sadece "hep aynalı" seçiliyse görüntüyü de çevir; otomatikte görüntü olduğu gibi kalır
+  const t = cfg.mirror === '1' ? 'scaleX(-1)' : '';
+  video.style.transform = t; ipimg.style.transform = t;
+}
+async function scan() {
+  const w = src === video ? video.videoWidth : ipimg.naturalWidth, h = src === video ? video.videoHeight : ipimg.naturalHeight;
+  if (busy || !w || (src === video && video.readyState < 2)) return;
+  busy = true;
+  try {
+    // İnce çizgili barkodlar için en fazla 1280 piksel genişlikte tara
+    const scale = Math.min(1, 1280 / w);
+    cv.width = w * scale | 0; cv.height = h * scale | 0;
+    // Ters baskı (filmin iç yüzüne basılmış) kodlar kameradan aynalı görünür.
+    // Otomatikte önce son başarılı yön, okunamazsa diğer yön denenir.
+    const yonler = cfg.mirror === '1' ? [true] : cfg.mirror === '0' ? [false] : [aynaSon, !aynaSon];
+    for (const ayna of yonler) {
+      cx.setTransform(ayna ? -1 : 1, 0, 0, 1, ayna ? cv.width : 0, 0);
+      cx.drawImage(src, 0, 0, cv.width, cv.height);
+      cx.setTransform(1, 0, 0, 1, 0, 0);
+      const bulunan = await kodBul();
+      if (bulunan.length) {
+        aynaSon = ayna;
+        for (const b of bulunan) onCode(b.text, 'kamera', b.tip);
+        break;
+      }
+    }
+  } catch (e) { console.warn(e); }
+  busy = false; frames++;
+}
+function loop() {
+  if (!running) { looping = false; return; }
+  looping = true;
+  scan();
+  const now = performance.now();
+  if (now - fpsT > 1000) { $('fps').textContent = frames + ' tarama/sn' + (detector ? ' · yerleşik' : ' · ZXing'); frames = 0; fpsT = now; }
+  requestAnimationFrame(loop);
+}
+setInterval(checkStop, 250);
+showExpected(); applyMirror();
+seqLastOk = (log.find(e => e.valid === true) || {}).code || null;
+drawLog();
+if (log[0]) { lastEntry = log[0]; render(lastEntry, false); }
+})();
+</script>
+</body>
+</html>
